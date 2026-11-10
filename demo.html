@@ -1125,7 +1125,12 @@ const GH = (() => {
 
   // ---------- 報告書のグラフ（medical_pdf_service の matplotlib と同じ色・線） ----------
   function growthChart(r) {
-    const W = 1000, H = 340, L = 52, R = 24, T = 16, B = 74;
+    // 凡例は文字の幅を見積もって並べ、入りきらないときは2段にする（右端で切れないように）
+    const legendW = t => [...t].reduce((w, c) => w + (c.charCodeAt(0) < 256 ? 7.6 : 13.5), 0) + 50;
+    const legendItems = [['band', '標準範囲（±2SD）'], ['sd2', '-2SD（低身長の目安）'], ['un', `治療しない場合 ${f1(r.untreated)}cm`], ['tr', `GH治療をした場合 ${f1(r.treated)}cm`], ['mean', '同年齢の平均']].concat(r.history.length > 1 ? [['pt', 'これまでの測定']] : []);
+    const W = 1000, L = 52, R = 24, T = 16;
+    const wrap = legendItems.reduce((w, it) => w + legendW(it[1]), 0) > W - L - R;
+    const H = wrap ? 364 : 340, B = wrap ? 98 : 74;
     const stds = r.standards;
     const ages = r.trajectory.map(p => p.age).concat(r.history.map(p => p.age));
     const x0 = 0, x1 = 18.4;
@@ -1159,13 +1164,12 @@ const GH = (() => {
     s += `<circle cx="${X(cur.age)}" cy="${Y(cur.height)}" r="8.5" fill="#fff" stroke="#0a6e77" stroke-width="3"/>`;
     s += `<text x="${X(cur.age) + 12}" y="${Y(cur.height) + 22}" fill="#0a6e77" font-size="16" font-weight="700">現在 ${f1(cur.height)}cm</text>`;
     // 凡例
-    const items = [['band', '標準範囲（±2SD）'], ['sd2', '-2SD（低身長の目安）'], ['un', `治療しない場合 ${f1(r.untreated)}cm`], ['tr', `GH治療をした場合 ${f1(r.treated)}cm`], ['mean', '同年齢の平均']];
-    if (past.length) items.push(['pt', 'これまでの測定']);
-    let lx = L, ly = H - 8;
-    items.forEach(([k, label]) => {
+    let lx = L, ly = wrap ? H - 30 : H - 8;
+    legendItems.forEach(([k, label]) => {
+      if (lx + legendW(label) - 18 > W - R) { lx = L; ly += 22; }
       const sw = k === 'band' ? `<rect x="${lx}" y="${ly - 10}" width="26" height="10" fill="#e3f1f2"/>` : k === 'pt' ? `<circle cx="${lx + 13}" cy="${ly - 5}" r="4.5" fill="#0a6e77"/>` : `<line x1="${lx}" x2="${lx + 26}" y1="${ly - 5}" y2="${ly - 5}" stroke="${{ mean: '#01909d', sd2: '#9aa5ab', un: '#9aa5ab', tr: '#0a6e77' }[k]}" stroke-width="${k === 'tr' ? 3 : 2.2}"${k === 'sd2' || k === 'un' ? ' stroke-dasharray="6 4"' : ''}/>`;
       s += sw + `<text x="${lx + 32}" y="${ly}" fill="#233334" font-size="13.5">${label}</text>`;
-      lx += 32 + label.length * 13.5 + 18;
+      lx += legendW(label);
     });
     return s + '</svg>';
   }
