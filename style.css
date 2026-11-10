@@ -1,0 +1,52 @@
+
+:root {
+  color-scheme: light;
+  --text: #233334; --sub: #4f5f60; --sub2: #6b7a7b; --line: #d5e2e3; --pale: #f4f8f8; --tint: #e8f4f5;
+  --dark: #0a6e77; --accent: #01909d; --bg: #ffffff; --warn: #9a6a32;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.8 "Noto Sans JP", system-ui, sans-serif; }
+a { color: var(--dark); }
+.topbar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--line); }
+.brand { font-family: "Noto Serif JP", serif; font-weight: 700; color: var(--dark); text-decoration: none; font-size: 16px; }
+.brand span { font-family: "Noto Sans JP", sans-serif; font-weight: 500; color: var(--sub2); font-size: 12px; margin-left: 8px; }
+.topbar nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.topbar nav a { text-decoration: none; color: var(--sub); padding: 4px 12px; border-radius: 999px; font-size: 14px; }
+.topbar nav a[aria-current] { background: var(--tint); color: var(--dark); font-weight: 700; }
+main { max-width: 980px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-family: "Noto Serif JP", serif; color: var(--dark); font-size: 26px; line-height: 1.5; margin: 8px 0 12px; }
+h2 { font-family: "Noto Serif JP", serif; color: var(--dark); font-size: 20px; margin: 36px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--tint); }
+h3 { font-size: 16px; margin: 24px 0 8px; color: var(--text); }
+p, li { max-width: 72ch; }
+.lead { color: var(--sub); font-size: 15px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 24px 0; }
+.card { display: block; border: 1px solid var(--line); border-radius: 10px; padding: 18px; text-decoration: none; color: var(--text); background: #fff; }
+.card:hover { border-color: var(--accent); background: var(--pale); }
+.card b { display: block; font-family: "Noto Serif JP", serif; color: var(--dark); font-size: 18px; margin-bottom: 4px; }
+.card span { color: var(--sub); font-size: 14px; }
+.note { background: var(--pale); border-left: 3px solid var(--accent); padding: 10px 14px; border-radius: 4px; color: var(--sub); font-size: 14px; }
+.table-wrap { overflow-x: auto; margin: 12px 0; -webkit-overflow-scrolling: touch; }
+table { border-collapse: collapse; font-size: 13px; min-width: 100%; }
+th, td { border: 1px solid var(--line); padding: 5px 8px; vertical-align: top; text-align: left; }
+th { background: var(--tint); color: var(--dark); white-space: nowrap; }
+tr:nth-child(even) td { background: #fafcfc; }
+pre { background: var(--pale); border: 1px solid var(--line); border-radius: 6px; padding: 10px; overflow-x: auto; font-size: 12px; line-height: 1.5; }
+code { font-size: 0.92em; }
+.layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 28px; max-width: 1200px; margin: 0 auto; padding: 20px 16px 64px; }
+.side { position: sticky; top: 64px; align-self: start; display: flex; flex-direction: column; gap: 2px; }
+.side a { text-decoration: none; color: var(--sub); padding: 7px 10px; border-radius: 6px; font-size: 14px; line-height: 1.5; }
+.side a[aria-current] { background: var(--tint); color: var(--dark); font-weight: 700; }
+.tab { min-width: 0; }
+.js .tab { display: none; }
+.js .tab.on { display: block; }
+.tab > h1:first-child { margin-top: 0; }
+.dl { display: inline-block; margin: 6px 8px 6px 0; padding: 8px 16px; border-radius: 6px; background: var(--dark); color: #fff; text-decoration: none; font-weight: 700; font-size: 14px; }
+.dl.ghost { background: #fff; color: var(--dark); border: 1px solid var(--dark); }
+@media (max-width: 760px) {
+  .layout { grid-template-columns: 1fr; gap: 12px; }
+  .side { position: static; flex-direction: row; flex-wrap: wrap; gap: 4px; }
+  .side a { border: 1px solid var(--line); font-size: 13px; padding: 4px 10px; }
+  h1 { font-size: 22px; }
+}

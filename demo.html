@@ -1,0 +1,1321 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>精密身長予測デモ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap">
+<style>
+/* 今のシステムの見た目に合わせる：左＝管理画面（Tailwind の gray・blue）、右＝保護者向けPDF（medical_report.css の青緑と明朝の見出し）。紙の色が前提なので明るい見た目で固定 */
+:root {
+  color-scheme: light;
+  /* 管理画面（frontend/tailwind.config.js・measurement/page.tsx） */
+  --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb; --gray-300: #d1d5db; --gray-500: #6b7280; --gray-700: #374151; --gray-900: #111827;
+  --primary-50: #eff6ff; --primary-100: #dbeafe; --primary-500: #3b82f6; --primary-600: #2563eb; --primary-700: #1d4ed8;
+  --yellow-50: #fefce8; --yellow-200: #fef08a; --yellow-700: #a16207; --yellow-800: #854d0e;
+  /* 保護者向けPDF（backend/templates/pdf/medical_report.css） */
+  --r-text: #233334; --r-sub: #4f5f60; --r-sub2: #6b7a7b; --r-sub3: #8a9798; --r-line: #d5e2e3; --r-pale: #f4f8f8; --r-tint: #e8f4f5;
+  --r-dark: #0a6e77; --r-accent: #01909d; --r-grey: #9aa5ab; --r-band: #e3f1f2; --r-grid: #e3eceb; --r-target: #b8864b;
+  --r-warn: #9a6a32; --r-warn-line: #e2b98a; --r-warn-bg: #fdf7f0;
+  --sans: "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  --serif: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif;
+}
+* { box-sizing: border-box; }
+body { background: var(--gray-50); color: var(--gray-900); font-family: var(--sans); font-size: 14px; line-height: 1.6; }
+button, input { font: inherit; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--primary-500); outline-offset: 2px; }
+
+/* ===== 管理画面のヘッダー ===== */
+.app-header { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.app-header .in { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 14px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.app-header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--gray-900); }
+.app-header p { margin: 0; font-size: 0.875rem; color: var(--gray-500); }
+.tabs { display: inline-flex; gap: 4px; background: var(--gray-100); border-radius: 10px; padding: 4px; }
+.tabs button { border: 0; background: transparent; color: var(--gray-700); padding: 6px 14px; border-radius: 8px; font-weight: 500; font-size: 0.9rem; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: #fff; color: var(--primary-600); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+
+main.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 40px; }
+.layout { display: grid; grid-template-columns: minmax(320px, 440px) minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 980px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.col { display: grid; gap: 16px; min-width: 0; }
+.col-label { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; color: var(--gray-500); margin: 0 0 -6px; }
+
+/* ===== 管理画面のカード・入力（Tailwind の rounded-xl shadow-sm p-6） ===== */
+.a-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,.05); padding: 20px 22px; min-width: 0; }
+.a-card h2 { font-size: 1.05rem; font-weight: 600; color: var(--gray-900); margin: 0 0 14px; }
+.a-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+@media (max-width: 420px) { .a-grid { grid-template-columns: 1fr; } }
+.a-field { display: grid; gap: 6px; min-width: 0; }
+.a-field > span { font-size: 0.875rem; font-weight: 500; color: var(--gray-700); }
+.a-field input[type=number], .a-field input[type=date], .a-field input[type=text] { width: 100%; min-width: 0; padding: 8px 12px; border: 1px solid var(--gray-300); border-radius: 8px; background: #fff; color: var(--gray-900); font-variant-numeric: tabular-nums; }
+.a-field input:focus { outline: none; border-color: transparent; box-shadow: 0 0 0 2px var(--primary-500); }
+.a-help { font-size: 0.75rem; color: var(--gray-500); margin: 0; }
+.a-seg { display: inline-flex; border: 1px solid var(--gray-300); border-radius: 8px; overflow: hidden; width: fit-content; }
+.a-seg button { border: 0; background: #fff; color: var(--gray-700); padding: 7px 18px; cursor: pointer; }
+.a-seg button[aria-pressed="true"] { background: var(--primary-600); color: #fff; }
+.a-presets { display: flex; flex-wrap: wrap; gap: 8px; }
+.a-presets button { border: 1px solid var(--gray-300); background: #fff; color: var(--gray-700); border-radius: 999px; padding: 4px 12px; font-size: 0.8rem; cursor: pointer; }
+.a-presets button[aria-pressed="true"] { background: var(--primary-50); border-color: var(--primary-500); color: var(--primary-700); }
+.a-checks { display: grid; gap: 10px; }
+.a-check { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.a-check input { margin-top: 4px; width: 16px; height: 16px; accent-color: var(--primary-600); flex: none; }
+.a-check b { display: block; font-size: 0.875rem; font-weight: 500; color: var(--gray-900); }
+.a-check small { display: block; font-size: 0.75rem; color: var(--gray-500); }
+.a-check .ti { margin-left: auto; flex: none; font-size: 0.72rem; padding: 1px 8px; border-radius: 999px; background: var(--gray-100); color: var(--gray-700); }
+.t2 { background: #dcfce7 !important; color: #15803d !important; } .t3 { background: #fef9c3 !important; color: #a16207 !important; } .t4 { background: #ffedd5 !important; color: #c2410c !important; } .t5 { background: #fee2e2 !important; color: #b91c1c !important; }
+.a-judge { margin-top: 16px; padding: 14px 16px; background: var(--gray-50); border-radius: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.a-judge h3 { margin: 0; font-size: 0.875rem; font-weight: 500; color: var(--gray-700); }
+.a-judge p { margin: 2px 0 0; font-size: 0.75rem; color: var(--gray-500); }
+.a-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.85rem; font-weight: 500; background: var(--gray-100); color: var(--gray-700); }
+.a-badge.on { background: var(--primary-100); color: var(--primary-700); }
+.a-sub { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--gray-200); }
+.a-sub h3 { margin: 0 0 10px; font-size: 0.9rem; font-weight: 600; color: var(--gray-900); }
+.a-inline { display: flex; align-items: center; gap: 8px; font-size: 0.875rem; color: var(--gray-700); }
+.a-inline input { width: 16px; height: 16px; accent-color: var(--primary-600); }
+.a-alert { background: var(--yellow-50); border: 1px solid var(--yellow-200); border-radius: 12px; padding: 18px 22px; }
+.a-alert h2 { margin: 0 0 4px; font-size: 1.05rem; font-weight: 600; color: var(--yellow-800); }
+.a-alert .who { margin: 0 0 8px; font-size: 0.75rem; color: var(--yellow-700); }
+.a-alert ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.a-alert li { display: flex; gap: 8px; font-size: 0.875rem; color: var(--yellow-700); }
+.a-alert li svg { flex: none; width: 18px; height: 18px; margin-top: 2px; }
+.a-alert .none { font-size: 0.875rem; color: var(--yellow-700); margin: 0; }
+.a-err { color: #b91c1c; font-size: 0.9rem; }
+
+/* ===== 保護者向けPDF（紙） ===== */
+.paper-scroll { overflow-x: auto; }
+.paper { background: #fff; color: var(--r-text); box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(15,40,45,.06); border-radius: 4px; padding: 34px 36px 26px; font-size: 12.5px; line-height: 1.6; min-width: 0; }
+@media (max-width: 560px) { .paper { padding: 22px 16px 18px; } }
+.paper p { margin: 0; }
+.p-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; border-bottom: 1.2px solid var(--r-dark); padding-bottom: 7px; margin-bottom: 10px; }
+.p-head img { width: 150px; max-width: 40%; display: block; }
+.p-head .ttl { text-align: right; }
+.eyebrow { font-size: 10px; letter-spacing: 0.25em; color: var(--r-accent); }
+.p-head h2 { margin: 2px 0 0; font-family: var(--serif); font-size: 21px; font-weight: 700; color: var(--r-dark); letter-spacing: 0.04em; }
+.p-bar { background: var(--r-pale); border-left: 6px solid var(--r-accent); padding: 7px 14px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; justify-content: space-between; }
+.p-bar .name { font-size: 16px; font-weight: 700; margin-right: 10px; }
+.p-bar .meta { color: var(--r-sub); }
+.p-bar .demo { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #fff; background: #c8873a; border-radius: 4px; padding: 1px 9px; margin-left: 12px; vertical-align: 2px; }
+.p-bar .date { color: var(--r-sub); white-space: nowrap; }
+.blk { margin-bottom: 12px; }
+.sh { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.sh-title { font-family: var(--serif); font-size: 16.5px; font-weight: 700; color: var(--r-dark); display: flex; align-items: center; }
+.sh-title .num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: 1.2px solid var(--r-accent); border-radius: 50%; font-size: 12.5px; margin-right: 9px; color: var(--r-dark); flex: none; }
+.sh-en { font-size: 9.5px; letter-spacing: 0.22em; color: var(--r-sub3); white-space: nowrap; }
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.cards + .cards { margin-top: 6px; }
+.cards.c2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.cards.c4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 700px) { .cards.c4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .cards, .cards.c2 { grid-template-columns: minmax(0, 1fr); } }
+.card { border: 1px solid var(--r-line); border-radius: 9px; padding: 6px 11px; text-align: center; background: #fff; min-width: 0; }
+.card.tinted { background: var(--r-tint); border-color: var(--r-tint); }
+.card-label { font-size: 11px; color: var(--r-sub); }
+.card-value { font-size: 21px; font-weight: 700; line-height: 1.25; color: var(--r-text); font-variant-numeric: tabular-nums; }
+.card-value.accent { color: var(--r-dark); }
+.card-value .unit { font-size: 12px; font-weight: 400; margin-left: 3px; color: var(--r-sub); }
+.card-value .approx { font-size: 18px; }
+.card-value .na { font-size: 14px; font-weight: 400; color: var(--r-grey); }
+.card-sub { font-size: 10px; color: var(--r-sub2); }
+.cards.small .card-value { font-size: 15.5px; }
+.cards.small .card-value.text { font-size: 14px; line-height: 1.7; }
+.cards.small .card-label { font-size: 10px; }
+.tag-line { margin-top: 6px; font-size: 12px; }
+.tag { display: inline-block; background: var(--r-tint); color: var(--r-dark); font-size: 10.5px; font-weight: 700; padding: 1px 9px; border-radius: 3px; margin-right: 9px; }
+.r-note { margin-top: 6px !important; font-size: 10.5px; color: var(--r-sub); line-height: 1.65; }
+.r-note strong { color: var(--r-text); }
+.pred { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--r-line); border-radius: 9px; overflow: hidden; }
+.pred > div { text-align: center; padding: 7px 8px 6px; min-width: 0; }
+.pred .pu { background: #f2f5f5; border-right: 1px solid var(--r-line); }
+.pred .pe { border-right: 1px solid var(--r-line); }
+.pred .pt { background: var(--r-tint); }
+@media (max-width: 560px) { .pred { grid-template-columns: minmax(0, 1fr); } .pred .pu, .pred .pe { border-right: 0; border-bottom: 1px solid var(--r-line); } }
+.p-value { font-size: 25px; font-weight: 700; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.p-value.range { font-size: 20px; white-space: nowrap; }
+.p-value .unit { font-size: 13px; font-weight: 400; margin-left: 3px; }
+.p-value.grey { color: var(--r-sub2); } .p-value.bright { color: var(--r-accent); } .p-value.dark { color: var(--r-dark); }
+.bd { margin-top: 6px; background: var(--r-pale); border-radius: 6px; padding: 5px 8px; display: flex; flex-wrap: wrap; gap: 4px 18px; align-items: center; font-size: 11px; }
+.bd .h { color: var(--r-dark); font-weight: 700; white-space: nowrap; background: var(--r-tint); border-radius: 4px; padding: 2px 10px; margin-right: 6px; }
+.bd .l { color: var(--r-sub); margin-right: 5px; }
+.bd .v { font-weight: 700; color: var(--r-text); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.r-alert { margin-top: 10px; border: 1px solid var(--r-warn-line); background: var(--r-warn-bg); border-radius: 6px; padding: 8px 12px; font-size: 11px; }
+.r-alert .t { font-weight: 700; color: var(--r-warn); margin-bottom: 2px; }
+.chart-card { border: 1px solid var(--r-line); border-radius: 9px; padding: 6px 10px 4px; }
+.chart-card svg { width: 100%; height: auto; display: block; }
+.chart-card text { font-family: var(--sans); }
+.outlook-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-variant-numeric: tabular-nums; }
+.outlook-table th { font-size: 11px; font-weight: 400; color: var(--r-sub); text-align: center; padding: 6px 0; border-bottom: 1px solid var(--r-line); }
+.outlook-table td { padding: 6px 0; border-bottom: 1px solid var(--r-line); vertical-align: middle; }
+.outlook-table tr:last-child td { border-bottom: 0; }
+.outlook-table .row-label { font-size: 10.5px; color: var(--r-sub); width: 34%; text-align: left; }
+.outlook-table td.num { text-align: center; font-size: 16px; font-weight: 700; }
+.outlook-table .hl { background: var(--r-tint); }
+.outlook-table th.hl { color: var(--r-dark); font-weight: 700; }
+.outlook-table .grey { color: var(--r-sub2); } .outlook-table .dark { color: var(--r-dark); } .outlook-table .bright { color: var(--r-accent); }
+.pace .card { text-align: left; padding: 8px 12px; }
+.pill { display: inline-block; border: 1px solid var(--r-accent); color: var(--r-dark); font-size: 10px; font-weight: 700; padding: 0 8px; border-radius: 3px; }
+.pill.warn { border-color: var(--r-target); color: var(--r-warn); }
+.pace-head { font-size: 16.5px; font-weight: 700; color: var(--r-text); margin: 4px 0 3px; }
+.pace-head.warn { color: var(--r-warn); } .pace-head.muted { color: var(--r-grey); }
+.pace p { font-size: 10.5px; color: var(--r-sub); line-height: 1.65; }
+.pace p.source { margin-top: 3px; font-size: 9.5px; color: var(--r-sub3); }
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--r-line); border-radius: 9px; }
+.steps > div { padding: 8px 12px; border-right: 1px dashed #c9d8d9; min-width: 0; }
+.steps > div:last-child { border-right: 0; }
+@media (max-width: 560px) { .steps { grid-template-columns: minmax(0, 1fr); } .steps > div { border-right: 0; border-bottom: 1px dashed #c9d8d9; } .steps > div:last-child { border-bottom: 0; } }
+.step-no { font-family: var(--serif); font-size: 10.5px; letter-spacing: 0.12em; color: var(--r-accent); }
+.step-title { font-size: 13.5px; font-weight: 700; margin: 2px 0 5px; }
+.badge { display: inline-block; background: var(--r-dark); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 10px; border-radius: 10px; margin-bottom: 5px; }
+.steps p { font-size: 10.5px; color: var(--r-sub); }
+.contact { background: var(--r-dark); color: #fff; border-radius: 9px; padding: 10px 18px; margin: 12px 0 9px; display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; justify-content: space-between; }
+.contact .t { font-size: 14.5px; font-weight: 700; }
+.contact .s { font-size: 10.5px; opacity: .85; }
+.contact .r { text-align: right; white-space: nowrap; }
+.contact .c { font-size: 10.5px; opacity: .9; }
+.contact .ph { font-size: 22px; font-weight: 700; letter-spacing: .02em; line-height: 1.2; }
+.about { background: var(--r-pale); border-radius: 9px; padding: 9px 16px; }
+.about .t { font-size: 11.5px; font-weight: 700; margin-bottom: 2px; }
+.about p { font-size: 10px; color: var(--r-sub); }
+.about p.sample { color: #c8873a; }
+.sheets { display: grid; gap: 18px; min-width: 0; }
+.p-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin-top: 14px; padding-top: 8px; border-top: 0.8px solid var(--r-line); font-size: 10px; color: var(--r-sub3); }
+
+/* ===== LINE ===== */
+.line-layout { display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 420px); gap: 24px; align-items: start; justify-content: start; }
+@media (max-width: 820px) { .line-layout { grid-template-columns: minmax(0, 1fr); } }
+.talk { border-radius: 18px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.1); background: #8aa8d4; max-width: 420px; width: 100%; }
+.talk-bar { background: #2d3a4f; color: #fff; padding: 10px 14px; font-weight: 700; font-size: 0.92rem; display: flex; align-items: center; gap: 8px; }
+.talk-bar small { font-weight: 400; opacity: .75; }
+.talk-body { padding: 14px 12px 16px; display: grid; gap: 10px; }
+.msg { display: flex; gap: 8px; align-items: flex-end; max-width: 100%; }
+.msg .av { width: 30px; height: 30px; border-radius: 50%; background: var(--r-dark); color: #fff; font-size: 11px; font-weight: 700; display: grid; place-items: center; flex: none; }
+.msg .b { background: #fff; color: #1f2933; border-radius: 16px; padding: 8px 12px; white-space: pre-wrap; font-size: 0.86rem; line-height: 1.6; max-width: calc(100% - 40px); overflow-wrap: anywhere; }
+.msg.me { justify-content: flex-end; }
+.msg.me .b { background: #8de055; }
+.line-kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 0.875rem; margin: 0; }
+.line-kv dt { color: var(--gray-500); } .line-kv dd { margin: 0; color: var(--gray-900); font-variant-numeric: tabular-nums; }
+
+footer.site { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 32px; color: var(--gray-500); font-size: 0.78rem; display: grid; gap: 4px; }
+footer.site p { margin: 0; max-width: 90ch; }
+</style>
+
+<header class="app-header">
+  <div class="in">
+    <div>
+      <h1>精密身長予測デモ</h1>
+      <p>2026-11-10 修正版の計算をそのまま動かすデモです。架空の値で試してください（患者さんの情報は入れないでください）。</p>
+    </div>
+    <div class="tabs" role="tablist" aria-label="表示の切り替え">
+      <button id="tab-precise" role="tab" aria-selected="true" aria-controls="view-precise">精密検査（管理画面 → 報告書）</button>
+      <button id="tab-line" role="tab" aria-selected="false" aria-controls="view-line">LINE簡易予測</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="view-precise" role="tabpanel" aria-labelledby="tab-precise">
+    <div class="layout">
+      <div class="col">
+        <p class="col-label">スタッフの入力（管理画面）</p>
+        <form class="col" id="f" autocomplete="off">
+          <div class="a-card">
+            <h2>架空の見本</h2>
+            <div class="a-presets" id="presets"></div>
+          </div>
+          <div class="a-card">
+            <h2>患者情報</h2>
+            <div class="a-grid">
+              <div class="a-field"><span>性別</span>
+                <div class="a-seg" role="group" aria-label="性別">
+                  <button type="button" id="sex-male" aria-pressed="true">男子</button>
+                  <button type="button" id="sex-female" aria-pressed="false">女子</button>
+                </div>
+              </div>
+              <label class="a-field"><span>生年月日</span><input type="date" id="birth"></label>
+              <label class="a-field"><span>父親の身長（cm）</span><input type="number" id="father" step="0.1" placeholder="170.0"></label>
+              <label class="a-field"><span>母親の身長（cm）</span><input type="number" id="mother" step="0.1" placeholder="157.0"></label>
+            </div>
+          </div>
+          <div class="a-card">
+            <h2>基本情報</h2>
+            <div class="a-grid">
+              <label class="a-field"><span>測定日</span><input type="date" id="date"></label>
+              <label class="a-field"><span>身長（cm）</span><input type="number" id="height" step="0.1" placeholder="110.5"></label>
+              <label class="a-field"><span>体重（kg）</span><input type="number" id="weight" step="0.1" placeholder="20.5"></label>
+              <label class="a-field"><span>骨年齢（歳）</span><input type="number" id="ba" step="0.1" placeholder="5.5"></label>
+            </div>
+            <p class="a-help" style="margin-top:8px">骨年齢が暦年齢より遅れていると、GH治療効果が高まります</p>
+          </div>
+          <div class="a-card">
+            <h2>思春期の兆候</h2>
+            <div class="a-checks" id="checks"></div>
+            <label class="a-field" id="menarche-wrap" style="margin-top:12px" hidden><span>初潮年齢（歳）</span><input type="number" id="menarche" step="0.1" style="max-width:9rem"></label>
+            <div class="a-judge">
+              <div><h3>自動判定結果</h3><p>チェック内容から自動判定されます</p></div>
+              <div style="text-align:right">
+                <span class="a-badge" id="j-tanner">Tanner 1度</span>
+                <span class="a-badge" id="j-started">思春期前</span>
+                <p id="j-desc">思春期前（徴候なし）</p>
+              </div>
+            </div>
+          </div>
+          <div class="a-card">
+            <h2>検査値・治療状況</h2>
+            <div class="a-grid">
+              <label class="a-field"><span>IGF-1（ng/mL）</span><input type="number" id="igf1" step="0.1" placeholder="250"></label>
+              <label class="a-field"><span>うち忘れ回数（月間）</span><input type="number" id="missed" min="0" max="30" placeholder="0"></label>
+            </div>
+            <p class="a-help" style="margin-top:6px">月30回中の失敗回数。遵守率に影響します</p>
+            <div style="margin-top:10px"><label class="a-inline"><input type="checkbox" id="leup">リュープリン併用</label></div>
+            <div class="a-sub">
+              <h3>採血（思春期の段階・残りの伸びの判断に使います）</h3>
+              <p class="a-help" style="margin-bottom:10px">その日の採血の値だけを入力してください（前回の値は引き継ぎません）。空欄の項目は計算に使いません。</p>
+              <div class="a-grid">
+                <label class="a-field" id="t-wrap"><span>テストステロン（ng/mL）</span><input type="number" id="t" step="0.01" placeholder="0.03"><p class="a-help">検出されなかった（0.03未満）場合は 0 と入力。未検出なら思春期前として計算します</p></label>
+                <label class="a-field" id="e2-wrap" hidden><span>エストラジオール E2（pg/mL）</span><input type="number" id="e2" step="0.1" placeholder="20"><p class="a-help">20以上で、女性ホルモンが出始めている（思春期が始まっている）として計算します</p></label>
+                <label class="a-field"><span>LH（mIU/mL）</span><input type="number" id="lh" step="0.01" placeholder="0.3"><p class="a-help">0.3以上で、思春期が始まっているとして計算します</p></label>
+                <label class="a-field"><span>FSH（mIU/mL）</span><input type="number" id="fsh" step="0.01" placeholder="2.0"><p class="a-help">記録用（いまは計算に使っていません）</p></label>
+                <label class="a-field"><span>ALP（U/L・IFCC法）</span><input type="number" id="alp" step="1" placeholder="300"><p class="a-help">IFCC法の値。骨年齢が男子14.5・女子12.5歳以上か初経後のとき、低いと残りの伸びに上限をかけます</p></label>
+              </div>
+            </div>
+          </div>
+          <div class="a-card">
+            <h2>前回の測定（比較用）</h2>
+            <div class="a-grid">
+              <label class="a-field"><span>測定日</span><input type="date" id="prev-date"></label>
+              <label class="a-field"><span>身長（cm）</span><input type="number" id="prev-height" step="0.1"></label>
+            </div>
+            <p class="a-help" style="margin-top:6px">約3か月〜2年前の測定なら、半年後〜1年後の見通しに実際の伸びを混ぜます。</p>
+          </div>
+        </form>
+        <div class="a-alert" id="alerts"></div>
+      </div>
+
+      <div class="col">
+        <p class="col-label">保護者に渡す精密レポート（PDFと同じ並び）</p>
+        <div class="sheets" id="paper" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-line" role="tabpanel" aria-labelledby="tab-line" hidden>
+    <div class="line-layout">
+      <form class="a-card" id="lf" autocomplete="off">
+        <h2>LINEで聞く5つの質問</h2>
+        <div class="a-grid" style="grid-template-columns:1fr">
+          <div class="a-field"><span>お子さまの性別</span>
+            <div class="a-seg" role="group" aria-label="性別">
+              <button type="button" id="l-male" aria-pressed="true">男の子</button>
+              <button type="button" id="l-female" aria-pressed="false">女の子</button>
+            </div>
+          </div>
+          <label class="a-field"><span>今、何歳ですか？</span><input type="text" id="l-age" value="11歳6ヶ月"><p class="a-help">「11」「11歳」「11歳6ヶ月」「11歳半」で入れられます。「11」のような満年齢は11.5歳として計算します。</p></label>
+          <label class="a-field"><span>今の身長は何cmですか？</span><input type="text" id="l-height" value="140"></label>
+          <label class="a-field"><span>お父さまの身長は何cmですか？</span><input type="text" id="l-father" value="172"></label>
+          <label class="a-field"><span>お母さまの身長は何cmですか？</span><input type="text" id="l-mother" value="158"></label>
+        </div>
+        <div class="a-sub"><h3>計算の中身</h3><dl class="line-kv" id="l-kv"></dl></div>
+      </form>
+      <div class="talk" aria-label="LINEのトークの見本">
+        <div class="talk-bar">成長予測サービス <small>（デモ）</small></div>
+        <div class="talk-body" id="talk"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <p>計算の中身：成長曲線は身長先生の期待値に合わせて補正。骨年齢・思春期・初経・採血（テストステロン・LH・E2・ALP）を使い、成人身長は真ん中の値±1.7cmの幅で示す。骨端線の閉鎖・ALP・初経後の残りの伸びで治療の上乗せを抑える。院の機械学習の補正は含まない。</p>
+  <p>検品：同じ入力の架空の500人で、本番のプログラム（Python）とすべての数字・文面が一致することを確かめた。診断や治療の判断には使わないでください。</p>
+</footer>
+
+<script>
+// 身長予測の計算（2026-11-10 修正版のPythonコードをそのまま移したもの。機械学習の補正は含まない）
+// 出典: growth_standard_table.py / maturity_reference.py / growth_maturity.py / gh_effect.py /
+//       prediction_service.py / medical_pdf_service.py / counseling_service.py / line_prediction.py ほか
+const GH = (() => {
+  // ---------- Python と同じ丸め（偶数丸め） ----------
+  // 本当に「ちょうど真ん中」かどうか（x = 奇数 / 2^(n+1) のときだけ）を2進数で正確に判定する
+  function isExactTie(x, n) {
+    if (!isFinite(x) || x === 0) return false;
+    let v = Math.abs(x), e = 0;
+    while (!Number.isInteger(v)) { v *= 2; e -= 1; if (e < -1100) return false; }
+    while (e < 0 && v % 2 === 0) { v /= 2; e += 1; }
+    return -e === n + 1;
+  }
+  function pyRound(x, n = 0) {
+    if (isExactTie(x, n)) {
+      const m = Math.pow(10, n), sign = x < 0 ? -1 : 1;
+      const f = Math.floor(Math.abs(x) * m);
+      return sign * (f % 2 === 0 ? f : f + 1) / m;
+    }
+    return Number(x.toFixed(n));
+  }
+  function fmt(x, n = 1) {
+    return pyRound(x, n).toFixed(n);
+  }
+  function fmtSignedRaw(x, n = 1) { // Python f"{x:+.1f}"
+    const s = fmt(x, n);
+    return s.startsWith('-') ? s : '+' + s;
+  }
+  function signed(x) { // medical_pdf_service._signed（-0.0 を出さない）
+    let v = pyRound(Number(x), 1);
+    if (v === 0) v = 0;
+    const s = v.toFixed(1);
+    return s.startsWith('-') ? s : '+' + s;
+  }
+  function fmtG(x) { // Python f"{x:g}"（この画面で使う範囲）
+    return String(Number(x));
+  }
+
+  // ---------- 成長曲線（身長先生の期待値に合わせて補正した表） ----------
+  const MALE = [[0.0,49.0,1.8],[0.5,67.5,2.3],[1.0,75.0,2.7],[1.5,80.5,2.9],[2.0,85.5,3.1],[2.5,89.5,3.3],[3.0,93.5,3.5],[3.5,97.0,3.7],[4.0,100.5,3.9],[4.5,103.8,4.1],[5.0,107.1,4.3],[5.5,110.3,4.5],[6.0,113.5,4.7],[6.5,116.5,4.8],[7.0,119.4,5.0],[7.5,122.5,5.1],[8.0,125.3,5.2],[8.5,128.1,5.3],[9.0,130.9,5.4],[9.5,133.6,5.5],[10.0,136.3,5.6],[10.5,139.0,5.8],[11.0,142.0,6.0],[11.5,145.3,6.5],[12.0,148.9,7.0],[12.5,152.9,7.5],[13.0,157.0,7.5],[13.5,160.3,7.0],[14.0,163.1,6.5],[14.5,165.4,6.0],[15.0,167.7,5.8],[15.5,169.5,5.7],[16.0,170.5,5.6],[16.5,171.0,5.5],[17.0,171.2,5.5],[17.5,171.3,5.5],[18.0,171.4,5.5]];
+  const FEMALE = [[0.0,48.5,1.7],[0.5,66.0,2.2],[1.0,73.5,2.6],[1.5,79.0,2.8],[2.0,84.0,3.0],[2.5,88.0,3.2],[3.0,92.0,3.4],[3.5,95.5,3.6],[4.0,99.0,3.8],[4.5,102.7,4.0],[5.0,106.4,4.2],[5.5,109.5,4.4],[6.0,112.6,4.6],[6.5,115.5,4.7],[7.0,118.4,4.9],[7.5,121.3,5.0],[8.0,124.3,5.1],[8.5,127.3,5.3],[9.0,130.3,5.5],[9.5,133.8,5.8],[10.0,137.2,6.0],[10.5,140.6,6.3],[11.0,143.7,6.5],[11.5,147.0,6.5],[12.0,149.9,6.0],[12.5,152.2,5.5],[13.0,153.7,5.3],[13.5,155.0,5.2],[14.0,156.0,5.1],[14.5,156.7,5.0],[15.0,157.2,5.0],[15.5,157.7,5.0],[16.0,157.8,5.0],[16.5,157.9,5.0],[17.0,158.0,5.0],[17.5,158.0,5.0],[18.0,158.0,5.0]];
+  function standards(sex) {
+    return (sex === 'male' ? MALE : FEMALE).map(([age, mean, sd]) => ({ age, mean, sd }));
+  }
+
+  // ---------- 参照値 ----------
+  const TANNER_WINDOWS = {
+    female: { 1: [null, 11.0], 2: [9.0, 11.5], 3: [10.0, 12.5], 4: [11.5, 14.0], 5: [13.0, null] },
+    male: { 1: [null, 12.5], 2: [10.5, 13.0], 3: [11.5, 14.0], 4: [12.5, 15.5], 5: [14.5, null] },
+  };
+  const POST_MENARCHE = [[0.0, 7.0], [0.5, 5.0], [1.0, 3.5], [1.5, 2.5], [2.0, 1.5], [3.0, 0.5], [4.0, 0.0]];
+  const DELAYED_CREDIT = 0.5, DELAYED_MAX = 2.0;
+  const CLOSURE = { male: 16.0, female: 14.67 }, TAPER = 1.0;
+  const ALP_STOPPED = 113, ALP_STOPPED_CAP = 1.0, ALP_LATE = 175, ALP_LATE_CAP = 3.0, ALP_RELEASE = 250;
+  const ALP_APPLY_FROM_BA = { male: 14.5, female: 12.5 };
+  const T_LIMIT = 0.03, LH_TH = 0.3, E2_TH = 20.0;
+  const HALF_RANGE = 1.7, VEL_WEIGHT = 0.5;
+  const SHIFT_TOL = 0.05, DESCRIBE_TOL = 0.5;
+  const DEFAULT_GH = [
+    { age_min: 3, age_max: 6, base_effect: 9.0, variance: 2.0 },
+    { age_min: 6, age_max: 8, base_effect: 7.5, variance: 1.5 },
+    { age_min: 8, age_max: 10, base_effect: 6.5, variance: 1.5 },
+    { age_min: 10, age_max: 12, base_effect: 5.5, variance: 1.5 },
+    { age_min: 12, age_max: 14, base_effect: 4.5, variance: 1.5 },
+    { age_min: 14, age_max: 18, base_effect: 3.0, variance: 1.0 },
+  ];
+  const MIN_GH = 2.0;
+  const TYPICAL_TANNER = { male: [[11.5, 2], [12.5, 3], [13.0, 4], [15.0, 5]], female: [[10.0, 2], [11.0, 3], [12.25, 4], [14.0, 5]] };
+  const PUBERTY_ADJ = { female: { 1: 0.0, 2: -0.5, 3: -1.0, 4: -2.0, 5: -3.0 }, male: { 1: 0.0, 2: 0.0, 3: -0.5, 4: -2.0, 5: -3.5 } };
+  const VEL_REF = {
+    male: { 2: [9.0, 1.5], 3: [7.5, 1.3], 4: [7.0, 1.2], 5: [6.5, 1.2], 6: [6.0, 1.2], 7: [5.8, 1.2], 8: [5.5, 1.2], 9: [5.0, 1.2], 10: [4.5, 1.2], 11: [4.5, 1.5], 12: [6.5, 2.0], 13: [8.5, 2.2], 14: [7.5, 2.2], 15: [4.0, 2.0], 16: [2.5, 1.5], 17: [1.0, 1.0], 18: [0.5, 0.8] },
+    female: { 2: [9.0, 1.5], 3: [7.5, 1.3], 4: [7.0, 1.2], 5: [6.5, 1.2], 6: [6.0, 1.2], 7: [5.8, 1.2], 8: [5.5, 1.2], 9: [5.5, 1.3], 10: [7.0, 1.5], 11: [7.5, 2.0], 12: [5.5, 2.0], 13: [3.0, 1.8], 14: [1.5, 1.2], 15: [0.8, 1.0], 16: [0.3, 0.8], 17: [0.2, 0.5], 18: [0.1, 0.5] },
+  };
+
+  // ---------- 日付 ----------
+  function parseDate(s) { const [y, m, d] = s.split('-').map(Number); return { y, m, d, t: Date.UTC(y, m - 1, d) }; }
+  function daysBetween(a, b) { return Math.round((parseDate(b).t - parseDate(a).t) / 86400000); }
+  function calculateAge(birth, target) { return pyRound(daysBetween(birth, target) / 365.25, 2); }
+  function ageParts(birth, target) {
+    const b = parseDate(birth), t = parseDate(target);
+    let years = t.y - b.y, months = t.m - b.m;
+    if (t.d < b.d) months -= 1;
+    if (months < 0) { years -= 1; months += 12; }
+    return [Math.max(years, 0), Math.max(months, 0)];
+  }
+  function addDays(s, n) { const d = new Date(parseDate(s).t + n * 86400000); return d.toISOString().slice(0, 10); }
+
+  // ---------- 補間 ----------
+  function interp(stds, age, key) {
+    if (age <= stds[0].age) return stds[0][key];
+    if (age >= stds[stds.length - 1].age) return stds[stds.length - 1][key];
+    for (let i = 0; i < stds.length - 1; i++) {
+      const a0 = stds[i].age, a1 = stds[i + 1].age;
+      if (a0 <= age && age < a1) {
+        if (a1 === a0) return stds[i][key];
+        const t = (age - a0) / (a1 - a0);
+        return stds[i][key] + t * (stds[i + 1][key] - stds[i][key]);
+      }
+    }
+    return stds[stds.length - 1][key];
+  }
+  function postMenarcheRemaining(y) {
+    const T = POST_MENARCHE;
+    if (y <= T[0][0]) return T[0][1];
+    if (y >= T[T.length - 1][0]) return T[T.length - 1][1];
+    for (let i = 0; i < T.length - 1; i++) {
+      const [t0, g0] = T[i], [t1, g1] = T[i + 1];
+      if (t0 <= y && y < t1) return g0 + (y - t0) / (t1 - t0) * (g1 - g0);
+    }
+    return T[T.length - 1][1];
+  }
+  function heightAtAge(traj, target, key = 'height') {
+    if (!traj.length) return 0.0;
+    for (let i = 0; i < traj.length; i++) {
+      const p = traj[i];
+      if (p.age >= target) {
+        if (i === 0) return p[key];
+        const prev = traj[i - 1], span = p.age - prev.age;
+        if (span === 0) return p[key];
+        const t = (target - prev.age) / span;
+        return prev[key] + t * (p[key] - prev[key]);
+      }
+    }
+    return traj[traj.length - 1][key];
+  }
+
+  // ---------- 思春期（PubertyService） ----------
+  function tannerFromChecks(sex, c) {
+    if (sex === 'female') {
+      if (c.breast_developed && c.menarche && c.axillary_hair) return 5;
+      if (c.menarche) return 4;
+      if (c.pubic_hair || c.axillary_hair || c.breast_developed) return 3;
+      if (c.breast_budding) return 2;
+      return 1;
+    }
+    if (c.voice_change && c.axillary_hair && c.pubic_hair) return 5;
+    if (c.voice_change || c.axillary_hair) return 4;
+    if (c.penis_enlarged || c.pubic_hair || c.growth_spurt || c.spermarche) return 3;
+    if (c.testis_enlarged) return 2;
+    return 1;
+  }
+  const TANNER_LABEL = { 1: '思春期前', 2: '思春期初期', 3: '思春期中期', 4: '思春期後期', 5: '成熟' };
+
+  // ---------- 成熟度 ----------
+  function damp(ca, raw) {
+    const delay = ca - raw;
+    if (delay <= 0) return raw;
+    return ca - Math.min(delay * DELAYED_CREDIT, DELAYED_MAX);
+  }
+  function hormonalPuberty(sex, t, lh, e2) {
+    let started = false;
+    if (lh != null && lh >= LH_TH) started = true;
+    if (sex === 'male' && t != null && t >= T_LIMIT) started = true;
+    if (sex === 'female' && e2 != null && e2 >= E2_TH) started = true;
+    if (started) return true;
+    if (sex === 'male' && t != null) return false;
+    if (sex === 'female' && lh != null) return false;
+    return null;
+  }
+  function estimateMaturity({ sex, ca, tanner = null, boneAge = null, menarcheAge = null, confirmedPrepubertal = false, testosterone = null, lh = null, estradiol = null }) {
+    const mk = (bio, method, extra = {}) => ({ ca, bio, method, tanner: null, ysm: null, hormoneNote: null, ...extra, get shift() { return pyRound(this.bio - this.ca, 2); } });
+    if (sex === 'female' && menarcheAge != null && menarcheAge > 0 && menarcheAge <= ca) {
+      return mk(ca, 'post_menarche', { tanner, ysm: pyRound(ca - menarcheAge, 2) });
+    }
+    if (boneAge != null && boneAge > 0) return mk(damp(ca, boneAge), 'bone_age', { tanner });
+    let hormoneNote = null;
+    const h = hormonalPuberty(sex, testosterone, lh, estradiol);
+    const stageNow = tanner;
+    if (h === true && (stageNow == null || stageNow < 2)) {
+      tanner = 2; hormoneNote = '採血で思春期が始まっていることが確認できたため、その段階として算出しています。';
+    } else if (h === false && (stageNow == null || stageNow <= 1)) {
+      tanner = 1; confirmedPrepubertal = true; hormoneNote = '採血で思春期がまだ始まっていないことを確認したうえで算出しています。';
+    }
+    if (tanner != null && (tanner >= 2 || confirmedPrepubertal)) {
+      const [lo, hi] = TANNER_WINDOWS[sex === 'female' ? 'female' : 'male'][tanner] || [null, null];
+      let bio = ca;
+      if (lo != null && bio < lo) bio = lo;
+      if (hi != null && bio > hi) bio = damp(ca, hi);
+      return mk(bio, 'tanner', { tanner, hormoneNote });
+    }
+    return mk(ca, 'chronological');
+  }
+  function describeMaturity(m, boneAgeDiff = null) {
+    let text = describeCore(m, boneAgeDiff);
+    if (m.hormoneNote) text += m.hormoneNote;
+    return text;
+  }
+  function describeCore(m, diff) {
+    if (m.method === 'post_menarche') return '初経からの経過期間をもとに、成人までに残っている伸びを見込んで算出しています。';
+    const useDisplay = diff != null && m.method === 'bone_age';
+    if (useDisplay && Math.abs(diff) < DESCRIBE_TOL) return '骨年齢はおおむね年齢相応のため、ほぼ年齢どおりの成長ペースとして算出しています。';
+    if (!useDisplay && Math.abs(m.shift) < SHIFT_TOL) {
+      if (m.method === 'bone_age') return '骨年齢は年齢相応のため、年齢どおりの成長ペースとして算出しています。';
+      if (m.method === 'tanner') return '思春期の進み具合は年齢相応のため、年齢どおりの成長ペースとして算出しています。';
+      return '年齢どおりの成長ペースとして算出しています。';
+    }
+    const basis = m.method === 'bone_age' ? '骨年齢' : '思春期の進み具合';
+    let raw;
+    if (useDisplay) raw = diff;
+    else {
+      raw = m.shift > 0 ? m.shift : m.shift / DELAYED_CREDIT;
+      if (Math.abs(raw) < DESCRIBE_TOL) return `${basis}はおおむね年齢相応のため、ほぼ年齢どおりの成長ペースとして算出しています。`;
+    }
+    const years = useDisplay ? Math.abs(raw) : Math.abs(m.shift);
+    if (raw > 0) {
+      const lab = Math.abs(years - pyRound(years)) < 0.05 ? String(pyRound(years)) : fmt(years, 1);
+      return `${basis}から、体の成熟が年齢より約${lab}年早く進んでいると考えられます。成熟が早い場合は身長の伸びる期間も早く終わるため、その分を反映して算出しています。`;
+    }
+    return `${basis}から、体の成熟が年齢よりゆっくり進んでいると考えられます。成熟がゆっくりな場合は身長の伸びる期間が長く残るため、その分を上乗せしています（多く見積もりすぎないよう、遅れの半分だけ反映しています）。`;
+  }
+
+  // ---------- 治療しない場合 ----------
+  function agePoints(ca, max = 18.0, step = 0.5) {
+    const pts = [];
+    for (let i = 0; ; i++) {
+      const a = ca + step * i;
+      if (a >= max + step - 1e-9) break;
+      pts.push(a);
+    }
+    return pts;
+  }
+  function finalize(traj, h) {
+    if (traj.length) {
+      traj[0].height = pyRound(h, 1);
+      for (let i = 1; i < traj.length; i++) if (traj[i].height < traj[i - 1].height) traj[i].height = traj[i - 1].height;
+    }
+    const final = traj.length ? traj[traj.length - 1].height : pyRound(h, 1);
+    return { final: pyRound(final, 1), traj };
+  }
+  function projectCore(stds, ca, h, m) {
+    const ages = agePoints(ca);
+    if (m.method === 'post_menarche' && m.ysm != null) {
+      const now = postMenarcheRemaining(m.ysm);
+      const traj = ages.map(a => ({ age: pyRound(a, 1), height: pyRound(h + (now - postMenarcheRemaining(m.ysm + (a - ca))), 1) }));
+      return finalize(traj, h);
+    }
+    const bioNow = m.bio;
+    const meanNow = interp(stds, bioNow, 'mean'), sdNow = interp(stds, bioNow, 'sd');
+    const sds = sdNow > 0 ? (h - meanNow) / sdNow : 0.0;
+    const traj = ages.map(a => {
+      const bio = bioNow + (a - ca);
+      return { age: pyRound(a, 1), height: pyRound(interp(stds, bio, 'mean') + sds * interp(stds, bio, 'sd'), 1) };
+    });
+    return finalize(traj, h);
+  }
+  function shrink(res, h, cap) {
+    const remaining = res.final - h;
+    if (remaining <= cap || !res.traj.length) return false;
+    const ratio = cap / remaining;
+    res.traj.forEach(p => { p.height = pyRound(h + (p.height - h) * ratio, 1); });
+    res.final = res.traj[res.traj.length - 1].height;
+    return true;
+  }
+  function alpRemainingCap(alp, remaining = null) {
+    if (alp == null) return null;
+    if (alp <= ALP_STOPPED) return ALP_STOPPED_CAP;
+    if (alp < ALP_LATE) return ALP_STOPPED_CAP + (alp - ALP_STOPPED) / (ALP_LATE - ALP_STOPPED) * (ALP_LATE_CAP - ALP_STOPPED_CAP);
+    if (alp < ALP_RELEASE) {
+      if (remaining == null || remaining <= ALP_LATE_CAP) return null;
+      return ALP_LATE_CAP + (alp - ALP_LATE) / (ALP_RELEASE - ALP_LATE) * (remaining - ALP_LATE_CAP);
+    }
+    return null;
+  }
+  function projectUntreated(stds, ca, h, m, { sex, alp = null, velocity = null, weight = null, boneAge = null } = {}) {
+    const res = projectCore(stds, ca, h, m);
+    res.notes = []; res.alpCap = null;
+    // 初経後の女子で骨年齢が閉鎖に近い・以上
+    if (sex === 'female' && m.method === 'post_menarche' && boneAge) {
+      const closure = CLOSURE.female, start = closure - TAPER;
+      const remaining = res.final - h;
+      if (boneAge >= start && remaining > 1.0) {
+        const t = Math.min((boneAge - start) / TAPER, 1.0);
+        const cap = remaining - (remaining - 1.0) * t;
+        if (shrink(res, h, cap)) {
+          res.notes.push(boneAge >= closure
+            ? '骨年齢から骨端線が閉じる時期（骨年齢14歳8か月）に達していると考えられるため、残りの伸びを1cmまでとして算出しています。'
+            : `骨年齢から骨端線が閉じる時期（骨年齢14歳8か月）に近いため、初経後の残りの伸びを少なめ（約${fmt(cap)}cm）に見込んでいます。`);
+        }
+      }
+    }
+    // ALP
+    if (alp != null) {
+      const reference = boneAge ? boneAge : m.bio;
+      const threshold = ALP_APPLY_FROM_BA[sex] ?? 14.5;
+      const w = m.method === 'post_menarche' ? 1.0 : Math.min(Math.max((reference - (threshold - 1.0)) / 1.0, 0.0), 1.0);
+      if (w > 0) {
+        const remaining = res.final - h;
+        const full = alpRemainingCap(alp, remaining);
+        if (full != null) {
+          const cap = remaining <= full ? full : remaining - (remaining - full) * w;
+          res.alpCap = cap;
+          if (shrink(res, h, cap)) {
+            const reason = alp < ALP_LATE ? 'ALPの値から成長は終わりに近いと考えられるため' : 'ALPの値から成長の終わりが近づいていると考えられるため';
+            res.notes.push(`${reason}、残りの伸びを${fmt(cap)}cmまでとして算出しています。`);
+          }
+        }
+      }
+    }
+    // 実測の伸び
+    if (velocity != null && weight && weight > 0) {
+      const traj = res.traj, final = res.final;
+      if (traj.length >= 3 && final - h >= 0.5) {
+        const v = Math.min(Math.max(Number(velocity), 0.0), 15.0);
+        const remaining = final - h;
+        const blended = (t, model) => {
+          const growth = (1 - weight) * model + weight * v * t;
+          const capFrac = t <= 0.5 ? 0.8 * t : 0.4 + 0.6 * (t - 0.5);
+          return Math.min(growth, Math.max(model, remaining * Math.min(capFrac, 0.7)));
+        };
+        const g1 = heightAtAge(traj, ca + 1.0) - h;
+        const delta1 = blended(1.0, g1) - g1;
+        const last = traj.length - 1;
+        for (let i = 0; i < traj.length; i++) {
+          const p = traj[i], t = p.age - ca;
+          if (i === 0 || i === last || t <= 0) continue;
+          const model = p.height - h;
+          let d;
+          if (t <= 1.0) d = blended(t, model) - model;
+          else if (t < 2.0) d = delta1 * (2.0 - t);
+          else break;
+          p.height = pyRound(Math.min(Math.max(p.height + d, h), final), 1);
+        }
+        for (let i = 1; i < traj.length; i++) if (traj[i].height < traj[i - 1].height) traj[i].height = traj[i - 1].height;
+        res.notes.push(`半年後〜1年後の見通しには、前回の測定からの実際の伸び（1年あたり約${fmt(v)}cm）を反映しています。成人身長の予測は変えていません。`);
+      }
+    }
+    return res;
+  }
+
+  // ---------- 治療の上乗せ（gh_effect.py） ----------
+  function smoothBand(age, bands = null) {
+    let B = [...(bands || DEFAULT_GH)].sort((a, b) => a.age_min - b.age_min);
+    for (let i = 1; i < B.length; i++) if (B[i].age_min < B[i - 1].age_max - 1e-9) { B = DEFAULT_GH; break; }
+    const A = B.map(b => { const lo = b.age_min; let hi = Math.min(b.age_max, 18.0); if (hi <= lo) hi = lo; return [(lo + hi) / 2, b.base_effect, b.variance || 0]; });
+    if (age <= A[0][0]) return [A[0][1], A[0][2]];
+    if (age >= A[A.length - 1][0]) return [A[A.length - 1][1], A[A.length - 1][2]];
+    for (let i = 0; i < A.length - 1; i++) {
+      const [a0, b0, v0] = A[i], [a1, b1, v1] = A[i + 1];
+      if (a0 <= age && age <= a1) { const t = a1 > a0 ? (age - a0) / (a1 - a0) : 0; return [b0 + t * (b1 - b0), v0 + t * (v1 - v0)]; }
+    }
+    return [A[A.length - 1][1], A[A.length - 1][2]];
+  }
+  function typicalTanner(sex, age) { let s = 1; for (const [start, v] of TYPICAL_TANNER[sex] || TYPICAL_TANNER.male) if (age >= start) s = v; return s; }
+  function limitGhEffect(raw, sex, ref, alpCap = null, menarcheCap = null) {
+    const closure = CLOSURE[sex] ?? 16.0;
+    if (ref >= closure) return [0.0, 'closure', true];
+    let total = Math.max(raw, MIN_GH);
+    let reason = total > raw ? 'floor' : null;
+    let limited = false;
+    if (ref >= closure - TAPER) { total *= (closure - ref) / TAPER; reason = 'closure'; limited = true; }
+    if (alpCap != null && total > alpCap) { total = alpCap; reason = 'alp'; }
+    if (menarcheCap != null && total > menarcheCap) { total = menarcheCap; reason = 'menarche'; }
+    return [total, reason, limited];
+  }
+  function yearDistribution(total, remaining) {
+    const s = remaining >= 5 ? [0.45, 0.25, 0.15, 0.10, 0.05] : remaining >= 3 ? [0.50, 0.30, 0.20] : [0.60, 0.40];
+    return s.map(x => total * x);
+  }
+  function cumulative(dist, years) {
+    if (years <= 0) return 0.0;
+    let c = 0.0;
+    for (let i = 0; i < dist.length; i++) {
+      if (years >= i + 1) c += dist[i];
+      else if (years > i) { c += dist[i] * (years - i); break; }
+    }
+    return c;
+  }
+  function growthEnd(sex) { return sex === 'male' ? 18.0 : (CLOSURE[sex] ?? 16.0); }
+  function effectDistribution(total, sex, ref) { return yearDistribution(total, Math.max(growthEnd(sex) - ref, 1)); }
+  function yearsLabel(y) {
+    const halves = pyRound(y * 2), whole = Math.floor(halves / 2), half = halves % 2;
+    if (whole === 0) return half ? '半年' : '半年未満';
+    return half ? `${whole}年半` : `${whole}年`;
+  }
+  function closureNote(sex, total, hasBA) {
+    const basis = hasBA ? '骨年齢' : '体の成熟の進み具合';
+    const timing = sex === 'male' ? '16歳' : '14歳8か月';
+    return total <= 0
+      ? `${basis}から、骨端線が閉じる時期（骨年齢${timing}）に達していると考えられるため、治療による上乗せは見込んでいません。`
+      : `${basis}から、骨端線が閉じる時期（骨年齢${timing}）に近いため、治療による上乗せをその分少なく見込んでいます。`;
+  }
+  function menarcheNote(ysm, cap) {
+    const since = yearsLabel(ysm);
+    if (cap <= 0.05) return `初経から約${since}たち、初経後に残る伸びがほぼないため、治療による上乗せは見込んでいません。`;
+    return `初経から約${since}たっているため、治療による上乗せも、初経後に残る伸びの目安（約${fmt(cap)}cm）までとしています。`;
+  }
+  const PAST_HORIZON_NOTE = '成長の見通しを出せる期間（18歳まで）を過ぎているため、治療による上乗せは見込んでいません。';
+  function horizonNote(hasBA) { return `${hasBA ? '骨年齢' : '体の成熟の進み具合'}から見て、上乗せが出きる前に18歳になるため、18歳までに見込める分だけを上乗せとしています。`; }
+
+  function predictTreated({ ca, h, sex, untreated, boneAge, tanner, pubertyStarted, missed }) {
+    const base = smoothBand(ca)[0];
+    const baAdj = boneAge != null ? -(boneAge - ca) * 0.8 : 0.0;
+    const pubAdj = tanner != null ? (PUBERTY_ADJ[sex === 'female' ? 'female' : 'male'][tanner] ?? 0) : (pubertyStarted ? -1.5 : 0.0);
+    const compliance = Math.max(0, 1 - missed / 30);
+    const compAdj = base * (compliance - 1) * 0.3;
+    const raw = base + baAdj + pubAdj + compAdj;
+    const m = untreated.maturity;
+    const refAge = m ? m.bio : ca;
+    const closureRef = boneAge != null ? boneAge : refAge;
+    const alpCap = untreated.alpCap;
+    const menCap = m && m.method === 'post_menarche' && m.ysm != null ? postMenarcheRemaining(m.ysm) : null;
+    let [total, reason, limited] = limitGhEffect(raw, sex, closureRef, alpCap, menCap);
+    const notes = [...untreated.notes];
+    const pts = untreated.traj;
+    const available = pts.length ? pts[pts.length - 1].age - ca : 0.0;
+    if (available <= 0 && total > 0) { total = 0.0; reason = 'closure'; limited = true; notes.push(PAST_HORIZON_NOTE); }
+    else {
+      if (limited) notes.push(closureNote(sex, total, boneAge != null));
+      if (reason === 'alp') notes.push(`ALPの値から、治療による上乗せも${fmt(alpCap)}cmまでとして算出しています。`);
+      if (reason === 'menarche') notes.push(menarcheNote(m.ysm, menCap));
+    }
+    const dist = effectDistribution(total, sex, refAge);
+    if (available > 0 && total > 0) {
+      const accrued = cumulative(dist, available);
+      if (accrued < total - 0.05) { total = accrued; reason = 'closure'; limited = true; notes.push(horizonNote(boneAge != null)); }
+    }
+    const limitAdj = total - raw;
+    const traj = pts.map(p => {
+      const y = p.age - ca;
+      const c = y <= 0 ? 0.0 : Math.min(cumulative(dist, y), total);
+      return { age: p.age, untreated: p.height, treated: pyRound(p.height + c, 1) };
+    });
+    const final = traj.length ? traj[traj.length - 1].treated : h;
+    return {
+      final: pyRound(final, 1), traj, total,
+      breakdown: {
+        gh_base_effect: pyRound(base, 1), bone_age_adjustment: pyRound(baAdj, 1), puberty_adjustment: pyRound(pubAdj, 1),
+        adherence_adjustment: pyRound(compAdj, 1), maturity_limit_adjustment: pyRound(limitAdj, 1),
+        maturity_limit_reason: reason, final_gh_effect: pyRound(total, 1), notes,
+      },
+    };
+  }
+
+  // ---------- 精密検査の予測と報告書の値 ----------
+  function genetic(father, mother, sex) {
+    if (father == null || mother == null) return null;
+    return pyRound((father + mother + (sex === 'male' ? 13 : -13)) / 2, 1);
+  }
+  function describeSds(s) {
+    if (s == null) return '判定できません';
+    if (s >= 1.0) return '同年齢の平均より高めです';
+    if (s >= -1.0) return '同年齢の平均的な範囲です';
+    if (s >= -2.0) return '同年齢の平均よりやや低めです';
+    return '同年齢の平均より低く、低身長の基準（-2SD）に該当します';
+  }
+  function boneAgeNote(ba, age) {
+    if (ba == null) return null;
+    const diff = ba - age;
+    if (Math.abs(diff) < 0.5) return '年齢相応';
+    return diff > 0 ? `年齢より${fmt(diff)}歳進んでいます` : `年齢より${fmt(-diff)}歳遅れています`;
+  }
+  function labsText(L, sex) {
+    const parts = [];
+    if (sex === 'male' && L.testosterone != null) parts.push(L.testosterone < 0.03 ? 'テストステロン 検出なし' : `テストステロン ${fmtG(L.testosterone)} ng/mL`);
+    if (sex === 'female' && L.estradiol != null) parts.push(`エストラジオール ${fmtG(L.estradiol)} pg/mL`);
+    for (const [k, label, unit] of [['lh', 'LH', 'mIU/mL'], ['fsh', 'FSH', 'mIU/mL'], ['alp', 'ALP', 'U/L']]) if (L[k] != null) parts.push(`${label} ${fmtG(L[k])} ${unit}`);
+    return parts.length ? parts.join('／') : null;
+  }
+  function labCards(L, sex, alpCap) {
+    const keys = [sex === 'male' ? 'testosterone' : 'estradiol', 'lh', 'fsh', 'alp'];
+    if (keys.every(k => L[k] == null)) return [];
+    const cards = [];
+    const none = label => ({ label, value: null, unit: null, note: null });
+    if (sex === 'male') {
+      const t = L.testosterone;
+      if (t == null) cards.push(none('テストステロン'));
+      else if (t < T_LIMIT) cards.push({ label: 'テストステロン', value: '検出なし', unit: null, note: '思春期前の値です' });
+      else cards.push({ label: 'テストステロン', value: fmtG(t), unit: 'ng/mL', note: '思春期が始まっている値です' });
+    } else {
+      const e2 = L.estradiol;
+      if (e2 == null) cards.push(none('エストラジオール'));
+      else cards.push({ label: 'エストラジオール', value: fmtG(e2), unit: 'pg/mL', note: e2 >= E2_TH ? '女性ホルモンが出始めている値です' : '思春期前の値です' });
+    }
+    if (L.lh == null) cards.push(none('LH'));
+    else cards.push({ label: 'LH', value: fmtG(L.lh), unit: 'mIU/mL', note: L.lh >= LH_TH ? '思春期が始まっている値です' : '思春期前の値です' });
+    cards.push(L.fsh != null ? { label: 'FSH', value: fmtG(L.fsh), unit: 'mIU/mL', note: '参考値です' } : none('FSH'));
+    const alp = L.alp;
+    if (alp == null) cards.push(none('ALP（IFCC法）'));
+    else {
+      let note;
+      if (alpCap != null) note = alp <= ALP_STOPPED ? '成長がほぼ止まっている目安です' : alp < ALP_LATE ? '成長の終わりが近い目安です' : '成長の終わりが近づいている目安です';
+      else note = alp < ALP_LATE ? '参考値です（予測には使っていません）' : '骨の成長が続いている目安です';
+      cards.push({ label: 'ALP（IFCC法）', value: fmtG(alp), unit: 'U/L', note });
+    }
+    return cards;
+  }
+  function valueAtAge(traj, target, key) {
+    if (!traj.length) return null;
+    const P = [...traj].sort((a, b) => a.age - b.age);
+    if (target <= P[0].age) return P[0][key];
+    for (let i = 1; i < P.length; i++) {
+      const prev = P[i - 1], p = P[i];
+      if (p.age >= target) { const span = p.age - prev.age; if (span === 0) return p[key]; const t = (target - prev.age) / span; return prev[key] + t * (p[key] - prev[key]); }
+    }
+    return P[P.length - 1][key];
+  }
+  function evaluateVelocity(velocity, refAge, sex) {
+    if (velocity == null) return { available: false, label: '未記入', level: 'unknown', description: '比較できる過去の測定がないため、成長速度は次回以降の測定で評価します。' };
+    const ref = (VEL_REF[sex] || VEL_REF.male)[Math.trunc(refAge)];
+    if (!ref) return { available: true, label: '参考値なし', level: 'unknown', description: `1年間で${fmt(velocity)}cm伸びています。この年齢帯の標準値は設定されていません。` };
+    const [mean, sd] = ref;
+    const sds = pyRound((velocity - mean) / sd, 2);
+    if (sds >= 1.0) return { available: true, label: '速い', level: 'high', description: `1年間で${fmt(velocity)}cm伸びており、この時期の標準（約${fmt(mean)}cm/年）より速いペースです。思春期の伸びが始まっている可能性があります。` };
+    if (sds >= -1.0) return { available: true, label: '標準的', level: 'normal', description: `1年間で${fmt(velocity)}cm伸びており、この時期の標準（約${fmt(mean)}cm/年）と同程度のペースです。` };
+    if (sds >= -2.0) return { available: true, label: 'やや遅め', level: 'low', description: `1年間の伸びが${fmt(velocity)}cmで、この時期の標準（約${fmt(mean)}cm/年）よりやや遅いペースです。` };
+    return { available: true, label: '遅い', level: 'very_low', description: `1年間の伸びが${fmt(velocity)}cmで、この時期の標準（約${fmt(mean)}cm/年）を大きく下回っています。詳しい検査をおすすめします。` };
+  }
+
+  // 入力: { sex, birth, date, height, weight, boneAge, checks, menarcheAge, labs:{testosterone,lh,fsh,estradiol,alp}, prev:{date,height}|null, missed, father, mother, igf1 }
+  function precise(inp) {
+    const sex = inp.sex;
+    const stds = standards(sex);
+    const ca = calculateAge(inp.birth, inp.date);
+    const [ay, am] = ageParts(inp.birth, inp.date);
+    const h = Number(inp.height);
+    const boneAge = inp.boneAge ? Number(inp.boneAge) : null;
+    const stage = tannerFromChecks(sex, inp.checks || {});
+    const pubertyStarted = stage >= 2;
+    let tanner = stage >= 2 ? stage : 1;
+    const L = inp.labs || {};
+    if (tanner < 2 && hormonalPuberty(sex, L.testosterone, L.lh, L.estradiol)) tanner = 2;
+    const menarcheAge = sex === 'female' && (inp.checks || {}).menarche && inp.menarcheAge != null ? Number(inp.menarcheAge) : null;
+    // 前回の測定
+    let velocity = null, weight = null, prevH = null, prevYears = null;
+    if (inp.prev && inp.prev.date && inp.prev.height != null) {
+      prevH = Number(inp.prev.height);
+      prevYears = daysBetween(inp.prev.date, inp.date) / 365.25;
+      if (prevYears >= 0.24 && prevYears <= 2.0) {
+        velocity = (h - prevH) / prevYears;
+        weight = prevYears < 0.5 ? VEL_WEIGHT * (0.5 + 0.5 * (prevYears - 0.24) / 0.26) : prevYears <= 1.5 ? VEL_WEIGHT : VEL_WEIGHT * (2.0 - prevYears) / 0.5;
+      }
+    }
+    const maturity = estimateMaturity({ sex, ca, tanner, boneAge, menarcheAge, confirmedPrepubertal: !pubertyStarted, testosterone: L.testosterone, lh: L.lh, estradiol: L.estradiol });
+    const u = projectUntreated(stds, ca, h, maturity, { sex, alp: L.alp, velocity, weight, boneAge });
+    u.maturity = maturity;
+    const t = predictTreated({ ca, h, sex, untreated: u, boneAge, tanner, pubertyStarted, missed: Number(inp.missed || 0) });
+    const U = u.final, T = t.final;
+
+    // 確認事項（スタッフ向け）
+    const alerts = [];
+    const staff = msg => alerts.push(msg);
+    const igf1 = inp.igf1 ? Number(inp.igf1) : null;
+    if (igf1 && igf1 > 400 && prevH != null && prevYears && prevYears >= 0.24 && (h - prevH) / prevYears < 2.0) staff('IGF-1高値にもかかわらず成長が鈍化しています（1年あたり2cm未満）。GH不応症の可能性を検討してください。');
+    if (prevH != null && prevYears && prevYears >= 0.24 && h - prevH <= 0) staff(`前回（約${pyRound(prevYears * 12)}か月前）より身長が伸びていない記録です（${fmt(prevH)}cm → ${fmt(h)}cm）。測定値をご確認ください。`);
+    if (L.alp != null && L.alp <= ALP_STOPPED && u.alpCap == null) staff(`ALPが${fmtG(L.alp)}U/Lと低めですが、骨年齢（成熟の進み）から見て成長の終わりではないため、予測には使っていません。測定法（IFCC法か）や栄養状態などをご確認ください。`);
+    if (sex === 'male' && L.testosterone != null && L.testosterone < T_LIMIT && (stage >= 2 ? stage : 1) >= 3) staff(`テストステロンが検出されていませんが、診察の記録は思春期中期以降（Tanner ${stage}）です。どちらかの記録をご確認ください。`);
+    if (boneAge != null && Math.abs(boneAge - ca) >= 3.0) staff(`骨年齢（${fmt(boneAge)}歳）と年齢の差が${fmt(Math.abs(boneAge - ca))}歳あります。読影値・入力値をご確認ください。`);
+    const adult = stds[stds.length - 1];
+    if (U < adult.mean - 4 * adult.sd) staff(`治療しない場合の成人身長が${fmt(U)}cm（成人の平均より4SD以上低い）と算出されています。骨年齢の進み・入力値をご確認ください。`);
+
+    // 報告書の値
+    const ageByMonth = ay + am / 12;
+    const mean = interp(stds, ca, 'mean'), sd = interp(stds, ca, 'sd');
+    const sdsRaw = pyRound((h - mean) / sd, 2);
+    const effect = pyRound(T - U, 1);
+    const items = [];
+    const b = t.breakdown;
+    const add = (label, key, isSigned = true) => {
+      const v = b[key]; if (v == null) return;
+      if (isSigned && Math.abs(v) < 0.05) return;
+      items.push({ label, value: isSigned ? fmtSignedRaw(v) : '+' + fmt(v) });
+    };
+    add('年齢別の期待効果', 'gh_base_effect', false);
+    add('骨年齢による調整', 'bone_age_adjustment');
+    add('思春期による調整', 'puberty_adjustment');
+    if (b.maturity_limit_reason === 'floor') add('最低見込み（2cm）への調整', 'maturity_limit_adjustment');
+    else if (['closure', 'alp', 'menarche'].includes(b.maturity_limit_reason)) add('成長の残り期間による調整', 'maturity_limit_adjustment');
+    const range = (c, floor) => `${fmt(Math.max(c - HALF_RANGE, floor))}〜${fmt(c + HALF_RANGE)}`;
+    const outlook = [];
+    for (const [label, y] of [['半年後', 0.5], ['1年後', 1.0], ['1年半後', 1.5]]) {
+      const uu = valueAtAge(t.traj, ca + y, 'untreated'), tt = valueAtAge(t.traj, ca + y, 'treated');
+      if (uu == null || tt == null) continue;
+      outlook.push({ label, untreated: pyRound(uu, 1), treated: pyRound(tt, 1), difference: pyRound(tt - uu, 1) });
+    }
+    // 成長のペース（前回の測定が0.5〜1.5年前ならその伸び、なければ3か月以上前を1年あたりに換算）
+    let vel = null, velNote = null;
+    if (inp.prev && inp.prev.date && inp.prev.height != null && prevYears > 0) {
+      if (prevYears >= 0.5 && prevYears <= 1.5) { vel = (h - prevH) / prevYears; const mo = pyRound(prevYears * 12); if (mo !== 12) velNote = `直近${mo}か月の測定から1年あたりに換算`; }
+      else if (prevYears >= 0.25) { vel = (h - prevH) / prevYears; velNote = `直近${pyRound(prevYears * 12)}か月の測定から1年あたりに換算`; }
+    }
+    const reportMaturity = estimateMaturity({ sex, ca, tanner: stage >= 2 ? stage : 1, boneAge, menarcheAge, confirmedPrepubertal: !pubertyStarted, testosterone: L.testosterone, lh: L.lh, estradiol: L.estradiol });
+    const velocityEval = evaluateVelocity(vel != null ? pyRound(vel, 1) : null, reportMaturity.bio, sex);
+    velocityEval.sourceNote = velNote;
+    return {
+      ca, ageText: `${ay}歳${am}ヶ月`, stage, tannerLabel: TANNER_LABEL[stage],
+      untreated: U, treated: T, effect, effectText: signed(effect), totalEffect: t.total,
+      untreatedRange: range(U, h), treatedRange: range(T, h),
+      sds: sdsRaw, sdsText: signed(sdsRaw), sdsDescription: describeSds(sdsRaw),
+      boneAgeText: boneAge != null ? fmt(boneAge) : null, boneAgeNote: boneAgeNote(boneAge, ageByMonth),
+      labsText: labsText(L, sex),
+      labCards: labCards(L, sex, u.alpCap),
+      maturityNote: describeMaturity(reportMaturity, boneAge != null ? boneAge - ageByMonth : null),
+      maturityMethod: maturity.method, bioAge: maturity.bio,
+      breakdown: items, reason: b.maturity_limit_reason, finalGh: b.final_gh_effect,
+      notes: b.notes, alerts, outlook, velocity: velocityEval,
+      geneticTarget: genetic(inp.father, inp.mother, sex),
+      trajectory: t.traj, standards: stds,
+      history: (inp.prev && inp.prev.date && inp.prev.height != null) ? [{ age: calculateAge(inp.birth, inp.prev.date), height: prevH }, { age: ca, height: h }] : [{ age: ca, height: h }],
+    };
+  }
+
+  // ---------- LINE の簡易予測 ----------
+  const NOISE = ['約', 'だいたい', 'くらい', 'ぐらい', '位', 'ほど', '程', '程度', 'ぐらいです', 'くらいです', 'cm', 'CM', 'ｃｍ', 'センチ', 'せんち', '歳', '才', 'さい', 'サイ', 'です', 'だよ', 'かな', 'ですね'];
+  const KANJI = { '一': '1', '二': '2', '三': '3', '四': '4', '五': '5', '六': '6', '七': '7', '八': '8', '九': '9', '十': '10', '〇': '0', '零': '0' };
+  const toHalf = s => s.replace(/[０-９．]/g, c => c === '．' ? '.' : String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+  function normalize(s) {
+    s = toHalf(s);
+    for (const [k, v] of Object.entries(KANJI)) s = s.split(k).join(v);
+    for (const n of NOISE) s = s.split(n).join('').replace(new RegExp(n, 'gi'), '');
+    return s.trim();
+  }
+  function parseNumber(s) { const m = normalize(s).match(/(\d+(?:\.\d+)?)/); return m ? parseFloat(m[1]) : null; }
+  function parseAge(text) {
+    const d = toHalf(text);
+    let m = d.match(/(\d+)\s*(?:歳|才|さい|サイ)\s*(\d+)\s*(?:ヶ月|か月|カ月|ヵ月|ケ月|箇月|かげつ|カゲツ)/);
+    if (m && Number(m[2]) < 12) { const mo = Number(m[2]); const age = pyRound(Number(m[1]) + (mo ? mo / 12 : 0.01), 2); return age > 0 && age <= 20 ? age : null; }
+    m = d.match(/(\d+)\s*(?:歳|才|さい|サイ)\s*半/);
+    if (m) { const age = Number(m[1]) + 0.5; return age > 0 && age <= 20 ? age : null; }
+    const a = parseNumber(text);
+    return a != null && a > 0 && a <= 20 ? a : null;
+  }
+  function parseHeight(text) { const h = parseNumber(text); return h != null && h >= 50 && h <= 220 ? h : null; }
+  function ageLabel(age) {
+    const v = Number(age); let y = Math.trunc(v); let mo = pyRound((v - y) * 12);
+    if (mo >= 12) { y += 1; mo = 0; }
+    return mo === 0 ? `${y}歳` : `${y}歳${mo}か月`;
+  }
+  function lineCalcAge(age) { let a = Number(age); if (Number.isInteger(a)) a += 0.5; return Math.min(a, 18.0); }
+  function line(sex, age, height, father, mother) {
+    sex = sex === 'female' ? 'female' : 'male';
+    const ca = lineCalcAge(age);
+    const m = estimateMaturity({ sex, ca });
+    const p = projectUntreated(standards(sex), ca, height, m, { sex });
+    const U = p.final;
+    const umin = pyRound(Math.max(U - HALF_RANGE, height)), umax = pyRound(U + HALF_RANGE);
+    const gt = sex === 'male' ? (father + mother + 13) / 2 : (father + mother - 13) / 2;
+    const r = { untreated_min: umin, untreated_max: umax, treated_min: null, treated_max: null, gh_effect_min: null, gh_effect_max: null, genetic_target: pyRound(gt, 1), needs_exam: true, calculation_age: ca };
+    const [base, variance] = smoothBand(ca);
+    const pub = PUBERTY_ADJ[sex][typicalTanner(sex, ca)];
+    const low = limitGhEffect(base - variance + pub, sex, ca)[0];
+    const high = limitGhEffect(base + variance + pub, sex, ca)[0];
+    if (high < 1.0) return r;
+    const lo = Math.min(low, high), hi = Math.max(low, high);
+    Object.assign(r, { treated_min: umin + pyRound(lo), treated_max: umax + pyRound(hi), gh_effect_min: pyRound(lo), gh_effect_max: pyRound(hi), needs_exam: false });
+    return r;
+  }
+  function lineMessage(sex, age, height, p) {
+    const sexLabel = sex === 'male' ? '男の子' : '女の子';
+    const emoji = sex === 'male' ? '👦' : '👧';
+    let treatment;
+    if (p.needs_exam) treatment = '💊 成長ホルモン治療の場合\n　→ この年齢では、骨の成長がどのくらい残っているかで大きく変わるため、精密検査で骨年齢を確かめてからお伝えしています';
+    else {
+      const eff = p.gh_effect_min === p.gh_effect_max ? `約${p.gh_effect_min}cm` : `約${p.gh_effect_min}〜${p.gh_effect_max}cm`;
+      treatment = `💊 成長ホルモン治療の場合\n　→ 約 ${p.treated_min}〜${p.treated_max} cm\n\n✨ 治療で上乗せが期待できる目安: ${eff}\n（個人差が大きく、この通りになるとは限りません）`;
+    }
+    const parent = p.genetic_target ? `👪 ご両親の身長から見た目安\n　→ 約 ${Math.trunc(Number(p.genetic_target) + 0.5)} cm（ご両親の身長だけで計算した目安です）\n\n` : '';
+    return `ありがとうございます！\n予測結果をお伝えしますね🌈\n\n━━━━━━━━━━━━━━━━━\n${emoji} ${ageLabel(age)}の${sexLabel}（現在${fmt(height)}cm）\n━━━━━━━━━━━━━━━━━\n\n🌱 自然に成長した場合\n　→ 約 ${p.untreated_min}〜${p.untreated_max} cm\n\n${parent}${treatment}\n━━━━━━━━━━━━━━━━━\n\n※今の身長と年齢から計算した簡易予測です。\n骨年齢がわかると、より正確になります。\n詳しい診断はカウンセリングで！\n\n⚠️ 成長ホルモン治療は「開始が早いほど効果が出やすい治療」です。\n骨の成長が進んでしまうと、同じ治療でも伸び幅は大きく制限されてしまいます。\nつまり、「あとでやろう」と思った時には、取り返せない可能性があります。\n\n📅 無料カウンセリング予約は、下部メニューからご予約ください。`;
+  }
+
+  return { precise, line, lineMessage, parseAge, parseHeight, ageLabel, pyRound, fmt, standards, calculateAge, addDays, TANNER_LABEL, tannerFromChecks };
+})();
+
+
+</script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const TODAY = '2026-11-10';
+  const LOGO = 'data:image/png;base64,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';
+  const CLINIC = 'シンセルクリニック 低身長治療センター';
+  const PHONE = '0120-74-6174';
+  const CHECKS = {
+    male: [['testis_enlarged', '精巣が大きくなった（4ml以上）', 'オルキドメーターで4ml以上（Tanner 2度）', 2], ['penis_enlarged', '陰茎が大きくなった', '長さ・太さの増大が見られる（Tanner 3度）', 3], ['pubic_hair', '陰毛が生え始めた', '恥骨部に毛が生え始めた', 3], ['growth_spurt', '成長が急に伸びた（成長スパート）', '成長速度が明らかに加速している', 3], ['axillary_hair', '腋毛・髭が生え始めた', '腋窩や顔に毛が生え始めた（Tanner 4度）', 4], ['voice_change', '声変わりが始まった/終わった', '声が低くなった（Tanner 4度）', 4], ['spermarche', '精通（初射精）があった', '射精を経験した', 3]],
+    female: [['breast_budding', '乳房が膨らみ始めた', '乳頭周辺の膨らみが見られる（Tanner 2度）', 2], ['breast_developed', '乳房がさらに発達した', '乳房全体が膨らんでいる（Tanner 3度以降）', 3], ['pubic_hair', '陰毛が生え始めた', '恥骨部に毛が生え始めた', 3], ['axillary_hair', '腋毛が生え始めた', '腋窩に毛が生え始めた', 3], ['menarche', '初潮（初経）があった', '月経が始まった（Tanner 4度）', 4]],
+  };
+  const PRIMARY = {
+    male: { 5: '声変わり・腋毛・陰毛あり', 4: '声変わり または 腋毛発生', 3: '陰茎増大・陰毛発生・成長スパート', 2: '精巣増大（4ml以上）', 1: '徴候なし' },
+    female: { 5: '乳房成人型・初潮後・腋毛あり', 4: '初潮あり', 3: '陰毛・腋毛発生 または 乳房発達', 2: '乳房発達開始', 1: '徴候なし' },
+  };
+  const REMAINING = { 1: 'まだ思春期前の段階で、身長が伸びる期間が十分に残っています。', 2: '思春期が始まったばかりの段階です。身長が伸びる期間はまだ残っています。', 3: '思春期の中盤にさしかかっています。身長が伸びる期間は限られてきています。', 4: '思春期の後半にあたります。身長が伸びる期間は残りわずかと考えられます。', 5: '身体の成熟が進んでおり、身長の伸びはほぼ終わりに近づいていると考えられます。' };
+  const PRESETS = [
+    { name: '小5男子・背が低め・骨年齢が遅れ', sex: 'male', birth: '2016-01-15', height: 128.0, weight: 25.4, ba: 9.4, checks: [], labs: { t: 0, lh: 0.1, fsh: 1.2, alp: 280 }, prev: ['2025-11-08', 123.4], father: 168, mother: 155, igf1: 210, missed: 0 },
+    { name: '小6男子・この1年でぐっと伸びた', sex: 'male', birth: '2014-07-10', height: 146.0, weight: 37.8, ba: 12.8, checks: ['testis_enlarged', 'growth_spurt'], labs: { t: 1.2, lh: 1.8, fsh: 3.1, alp: 420 }, prev: ['2025-11-01', 137.5], father: 175, mother: 160, igf1: 380, missed: 0 },
+    { name: '中2男子・骨年齢15.5・ALP低め', sex: 'male', birth: '2012-06-03', height: 158.0, weight: 46.2, ba: 15.5, checks: ['testis_enlarged', 'penis_enlarged', 'pubic_hair', 'voice_change'], labs: { t: 3.8, lh: 3.2, fsh: 4.0, alp: 140 }, prev: ['2026-05-10', 156.4], father: 170, mother: 156, igf1: 330, missed: 2 },
+    { name: '高1男子・骨端線が閉じている', sex: 'male', birth: '2010-10-01', height: 162.0, weight: 52.0, ba: 16.5, checks: ['testis_enlarged', 'penis_enlarged', 'pubic_hair', 'axillary_hair', 'voice_change'], labs: { t: 5.1, lh: 4.0, fsh: 5.2, alp: 95 }, prev: null, father: 168, mother: 154, igf1: 300, missed: 0 },
+    { name: '小2女子・平均的', sex: 'female', birth: '2018-08-01', height: 124.0, weight: 23.0, ba: 8.0, checks: [], labs: {}, prev: null, father: 172, mother: 158, igf1: 180, missed: 0 },
+    { name: '中1女子・初経から1年', sex: 'female', birth: '2013-09-20', height: 145.0, weight: 38.5, ba: 13.2, checks: ['breast_budding', 'breast_developed', 'pubic_hair', 'menarche'], menarche: 12.1, labs: { e2: 85, lh: 3.5, fsh: 4.8, alp: 190 }, prev: ['2025-11-15', 141.0], father: 166, mother: 153, igf1: 290, missed: 0 },
+  ];
+  let sex = 'male';
+  const num = id => { const v = $(id).value.trim(); return v === '' ? null : Number(v); };
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const f1 = x => GH.fmt(x, 1);
+  const fg = x => String(Number(x));
+
+  function renderChecks(keep) {
+    const k = keep || {};
+    $('checks').innerHTML = CHECKS[sex].map(([key, label, desc, ti]) => `<label class="a-check"><input type="checkbox" data-k="${key}"${k[key] ? ' checked' : ''}><span><b>${label}</b><small>${desc}</small></span><span class="ti t${ti}">Tanner ${ti}</span></label>`).join('');
+    $('menarche-wrap').hidden = !(sex === 'female' && k.menarche);
+    $('t-wrap').hidden = sex !== 'male';
+    $('e2-wrap').hidden = sex !== 'female';
+  }
+  function currentChecks() { const c = {}; document.querySelectorAll('#checks input[type=checkbox]').forEach(el => { c[el.dataset.k] = el.checked; }); return c; }
+  function setSex(s, keep) { sex = s; $('sex-male').setAttribute('aria-pressed', String(s === 'male')); $('sex-female').setAttribute('aria-pressed', String(s === 'female')); renderChecks(keep); }
+  function loadPreset(i) {
+    const p = PRESETS[i];
+    document.querySelectorAll('#presets button').forEach((b, j) => b.setAttribute('aria-pressed', String(j === i)));
+    const k = {}; p.checks.forEach(x => { k[x] = true; });
+    setSex(p.sex, k);
+    $('birth').value = p.birth; $('date').value = TODAY; $('height').value = p.height; $('weight').value = p.weight ?? ''; $('ba').value = p.ba ?? '';
+    $('menarche').value = p.menarche ?? '';
+    $('t').value = p.labs.t ?? ''; $('e2').value = p.labs.e2 ?? ''; $('lh').value = p.labs.lh ?? ''; $('fsh').value = p.labs.fsh ?? ''; $('alp').value = p.labs.alp ?? '';
+    $('igf1').value = p.igf1 ?? ''; $('missed').value = p.missed ?? 0; $('leup').checked = false;
+    $('prev-date').value = p.prev ? p.prev[0] : ''; $('prev-height').value = p.prev ? p.prev[1] : '';
+    $('father').value = p.father ?? ''; $('mother').value = p.mother ?? '';
+    update();
+  }
+  $('presets').innerHTML = PRESETS.map((p, i) => `<button type="button" aria-pressed="${i === 0}">${p.name}</button>`).join('');
+  document.querySelectorAll('#presets button').forEach((b, i) => b.addEventListener('click', () => loadPreset(i)));
+  $('sex-male').addEventListener('click', () => { setSex('male', currentChecks()); update(); });
+  $('sex-female').addEventListener('click', () => { setSex('female', currentChecks()); update(); });
+  $('f').addEventListener('input', e => {
+    if (e.target && e.target.dataset && e.target.dataset.k === 'menarche') $('menarche-wrap').hidden = !e.target.checked;
+    document.querySelectorAll('#presets button').forEach(b => b.setAttribute('aria-pressed', 'false'));
+    update();
+  });
+  $('f').addEventListener('submit', e => e.preventDefault());
+
+  // ---------- 報告書のグラフ（medical_pdf_service の matplotlib と同じ色・線） ----------
+  function growthChart(r) {
+    const W = 1000, H = 340, L = 52, R = 24, T = 16, B = 74;
+    const stds = r.standards;
+    const ages = r.trajectory.map(p => p.age).concat(r.history.map(p => p.age));
+    const x0 = 0, x1 = 18.4;
+    const at = a => { let i = stds.findIndex(p => p.age >= a); if (i < 1) i = 1; const p0 = stds[i - 1], p1 = stds[i]; const t = (a - p0.age) / (p1.age - p0.age); return [p0.mean + t * (p1.mean - p0.mean), p0.sd + t * (p1.sd - p0.sd)]; };
+    const xs = []; for (let a = x0; a <= 18.0001; a += 0.25) xs.push(a);
+    const lo = xs.map(a => at(a)[0] - 2 * at(a)[1]), hi = xs.map(a => at(a)[0] + 2 * at(a)[1]), mid = xs.map(a => at(a)[0]);
+    const vals = [...lo, ...hi, ...r.trajectory.map(p => p.treated), ...r.history.map(p => p.height)];
+    if (r.geneticTarget) vals.push(r.geneticTarget);
+    const y0 = Math.floor((Math.min(...vals) - 1) / 5) * 5, y1 = Math.ceil((Math.max(...vals) + 3) / 5) * 5;
+    const X = a => L + (a - x0) / (x1 - x0) * (W - L - R), Y = h => T + (y1 - h) / (y1 - y0) * (H - T - B);
+    const path = pts => pts.map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1)).join(' ');
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="成長曲線と成人身長の予測">`;
+    for (let h = Math.ceil(y0 / 25) * 25; h <= y1; h += 25) s += `<line x1="${L}" x2="${W - R}" y1="${Y(h)}" y2="${Y(h)}" stroke="#e3eceb" stroke-width="1.4"/><text x="${L - 8}" y="${Y(h) + 5}" text-anchor="end" fill="#6b7a7b" font-size="15">${h}</text>`;
+    for (let a = 0; a <= 18; a += 3) s += `<text x="${X(a)}" y="${H - B + 22}" text-anchor="middle" fill="#6b7a7b" font-size="15">${a}</text>`;
+    s += `<text x="${(L + W - R) / 2}" y="${H - B + 42}" text-anchor="middle" fill="#6b7a7b" font-size="15">年齢（歳）</text>`;
+    s += `<text x="14" y="${(T + H - B) / 2}" text-anchor="middle" fill="#6b7a7b" font-size="15" transform="rotate(-90 14 ${(T + H - B) / 2})">身長（cm）</text>`;
+    s += `<path d="${path(xs.map((a, i) => [a, hi[i]]).concat(xs.map((a, i) => [a, lo[i]]).reverse()))} Z" fill="#e3f1f2"/>`;
+    s += `<path d="${path(xs.map((a, i) => [a, mid[i]]))}" fill="none" stroke="#01909d" stroke-width="1.8"/>`;
+    s += `<path d="${path(xs.map((a, i) => [a, lo[i]]))}" fill="none" stroke="#9aa5ab" stroke-width="1.5" stroke-dasharray="6 4"/>`;
+    if (r.geneticTarget) {
+      const gy = Y(r.geneticTarget);
+      s += `<line x1="${L}" x2="${W - R}" y1="${gy}" y2="${gy}" stroke="#b8864b" stroke-width="1.7" stroke-dasharray="1.5 3.5"/>`;
+      s += `<text x="${L + 8}" y="${gy - 6}" fill="#b8864b" font-size="14">遺伝的予測身長 ${f1(r.geneticTarget)}cm</text>`;
+    }
+    s += `<path d="${path(r.trajectory.map(p => [p.age, p.untreated]))}" fill="none" stroke="#9aa5ab" stroke-width="2.5" stroke-dasharray="8 5"/>`;
+    s += `<path d="${path(r.trajectory.map(p => [p.age, p.treated]))}" fill="none" stroke="#0a6e77" stroke-width="3.2"/>`;
+    const last = r.trajectory[r.trajectory.length - 1];
+    s += `<circle cx="${X(last.age)}" cy="${Y(last.untreated)}" r="6" fill="#9aa5ab"/><circle cx="${X(last.age)}" cy="${Y(last.treated)}" r="6" fill="#0a6e77"/>`;
+    const past = r.history.slice(0, -1), cur = r.history[r.history.length - 1];
+    past.forEach(p => { s += `<circle cx="${X(p.age)}" cy="${Y(p.height)}" r="4.5" fill="#0a6e77" opacity="0.85"/>`; });
+    s += `<circle cx="${X(cur.age)}" cy="${Y(cur.height)}" r="8.5" fill="#fff" stroke="#0a6e77" stroke-width="3"/>`;
+    s += `<text x="${X(cur.age) + 12}" y="${Y(cur.height) + 22}" fill="#0a6e77" font-size="16" font-weight="700">現在 ${f1(cur.height)}cm</text>`;
+    // 凡例
+    const items = [['band', '標準範囲（±2SD）'], ['sd2', '-2SD（低身長の目安）'], ['un', `治療しない場合 ${f1(r.untreated)}cm`], ['tr', `GH治療をした場合 ${f1(r.treated)}cm`], ['mean', '同年齢の平均']];
+    if (past.length) items.push(['pt', 'これまでの測定']);
+    let lx = L, ly = H - 8;
+    items.forEach(([k, label]) => {
+      const sw = k === 'band' ? `<rect x="${lx}" y="${ly - 10}" width="26" height="10" fill="#e3f1f2"/>` : k === 'pt' ? `<circle cx="${lx + 13}" cy="${ly - 5}" r="4.5" fill="#0a6e77"/>` : `<line x1="${lx}" x2="${lx + 26}" y1="${ly - 5}" y2="${ly - 5}" stroke="${{ mean: '#01909d', sd2: '#9aa5ab', un: '#9aa5ab', tr: '#0a6e77' }[k]}" stroke-width="${k === 'tr' ? 3 : 2.2}"${k === 'sd2' || k === 'un' ? ' stroke-dasharray="6 4"' : ''}/>`;
+      s += sw + `<text x="${lx + 32}" y="${ly}" fill="#233334" font-size="13.5">${label}</text>`;
+      lx += 32 + label.length * 13.5 + 18;
+    });
+    return s + '</svg>';
+  }
+  function outlookChart(cur, outlook) {
+    const W = 520, H = 280, L = 46, R = 70, T = 20, B = 58;
+    const labels = ['現在'].concat(outlook.map(o => o.label));
+    const un = [cur].concat(outlook.map(o => o.untreated)), tr = [cur].concat(outlook.map(o => o.treated));
+    const lo = Math.floor((Math.min(...un) - 1) / 2) * 2, hi = Math.ceil((Math.max(...tr) + 1) / 2) * 2;
+    const X = i => L + i * (W - L - R) / (labels.length - 1), Y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="1年後の見通し">`;
+    const k = labels.indexOf('1年後');
+    if (k >= 0) s += `<rect x="${X(k) - 0.32 * (W - L - R) / (labels.length - 1)}" y="${T}" width="${0.64 * (W - L - R) / (labels.length - 1)}" height="${H - T - B}" fill="#e8f4f5"/>`;
+    const step = hi - lo > 12 ? 4 : 2;
+    for (let v = lo; v <= hi; v += step) s += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#e3eceb" stroke-width="1.2"/><text x="${L - 7}" y="${Y(v) + 5}" text-anchor="end" fill="#6b7a7b" font-size="14">${v}</text>`;
+    const pts = a => a.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+    s += `<polygon points="${pts(tr)} ${tr.map((_, i) => `${X(tr.length - 1 - i).toFixed(1)},${Y(un[tr.length - 1 - i]).toFixed(1)}`).join(' ')}" fill="#e8f4f5" opacity="0.9"/>`;
+    s += `<polyline points="${pts(un)}" fill="none" stroke="#9aa5ab" stroke-width="2.3" stroke-dasharray="7 4"/>`;
+    s += `<polyline points="${pts(tr)}" fill="none" stroke="#01909d" stroke-width="2.8"/>`;
+    un.forEach((v, i) => { if (i) s += `<circle cx="${X(i)}" cy="${Y(v)}" r="4.5" fill="#9aa5ab"/>`; });
+    tr.forEach((v, i) => { if (i) s += `<circle cx="${X(i)}" cy="${Y(v)}" r="5" fill="#01909d"/>`; });
+    s += `<circle cx="${X(0)}" cy="${Y(cur)}" r="8" fill="#fff" stroke="#0a6e77" stroke-width="2.6"/>`;
+    const n = labels.length - 1;
+    s += `<text x="${X(n) + 10}" y="${Y(tr[n]) + 5}" fill="#0a6e77" font-size="14" font-weight="700">${f1(tr[n])}</text>`;
+    s += `<text x="${X(n) + 10}" y="${Y(un[n]) + 5 + (Math.abs(Y(un[n]) - Y(tr[n])) < 16 ? 14 : 0)}" fill="#6b7a7b" font-size="14" font-weight="700">${f1(un[n])}</text>`;
+    labels.forEach((lb, i) => { s += `<text x="${X(i)}" y="${H - B + 22}" text-anchor="middle" fill="${i === k ? '#0a6e77' : '#6b7a7b'}" font-size="14"${i === k ? ' font-weight="700"' : ''}>${lb}</text>`; });
+    s += `<line x1="${L}" x2="${L + 24}" y1="${H - 12}" y2="${H - 12}" stroke="#01909d" stroke-width="2.6"/><text x="${L + 30}" y="${H - 7}" fill="#233334" font-size="13">GH治療をした場合</text>`;
+    s += `<line x1="${L + 170}" x2="${L + 194}" y1="${H - 12}" y2="${H - 12}" stroke="#9aa5ab" stroke-width="2.2" stroke-dasharray="7 4"/><text x="${L + 200}" y="${H - 7}" fill="#233334" font-size="13">治療しない場合</text>`;
+    return s + '</svg>';
+  }
+
+  function update() {
+    const paper = $('paper'), alertsBox = $('alerts');
+    const checks = currentChecks();
+    const stage = GH.tannerFromChecks(sex, checks);
+    $('j-tanner').textContent = `Tanner ${stage}度`;
+    $('j-tanner').className = `a-badge${stage > 1 ? ' t' + stage : ''}`;
+    $('j-started').textContent = stage >= 2 ? '思春期開始済み' : '思春期前';
+    $('j-started').className = `a-badge${stage >= 2 ? ' on' : ''}`;
+    $('j-desc').textContent = `${GH.TANNER_LABEL[stage]}（${PRIMARY[sex][stage]}）`;
+    const birth = $('birth').value, date = $('date').value, height = num('height');
+    if (!birth || !date || height == null) { paper.innerHTML = '<article class="paper"><p class="a-err">生年月日・測定日・身長を入れると、報告書ができます。</p></article>'; alertsBox.innerHTML = ''; return; }
+    if (birth >= date) { paper.innerHTML = '<article class="paper"><p class="a-err">生年月日が測定日より後になっています。日付を直してください。</p></article>'; alertsBox.innerHTML = ''; return; }
+    const prevDate = $('prev-date').value, prevH = num('prev-height');
+    const inp = {
+      sex, birth, date, height, boneAge: num('ba'), checks, menarcheAge: num('menarche'),
+      labs: { testosterone: sex === 'male' ? num('t') : null, estradiol: sex === 'female' ? num('e2') : null, lh: num('lh'), fsh: num('fsh'), alp: num('alp') },
+      prev: prevDate && prevH != null && prevDate < date ? { date: prevDate, height: prevH } : null,
+      missed: num('missed') || 0, father: num('father'), mother: num('mother'), igf1: num('igf1'),
+    };
+    let r;
+    try { r = GH.precise(inp); } catch (e) { paper.innerHTML = `<article class="paper"><p class="a-err">計算できませんでした（${esc(e.message)}）。入力を見直してください。</p></article>`; return; }
+    const weight = num('weight'), igf1 = num('igf1'), father = num('father'), mother = num('mother');
+    const v = r.velocity, warnV = v.level === 'low' || v.level === 'very_low';
+    const d = date.split('-'), mdate = `${d[0]}年${d[1]}月${d[2]}日`, t = TODAY.split('-'), rdate = `${t[0]}年${t[1]}月${t[2]}日`;
+
+    // 管理画面の注意事項（スタッフ向け）
+    const icon = '<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>';
+    alertsBox.innerHTML = `<h2>⚠️ 注意事項</h2><p class="who">管理画面（患者ページ）にだけ出ます。保護者向けのPDFには出ません。</p>` +
+      (r.alerts.length ? `<ul>${r.alerts.map(a => `<li>${icon}<span>${esc(a)}</span></li>`).join('')}</ul>` : '<p class="none">いまの入力では、確認事項はありません。</p>');
+
+    const head = `<header class="p-head">
+        ${LOGO ? `<img src="${LOGO}" alt="${CLINIC}">` : '<span></span>'}
+        <div class="ttl"><div class="eyebrow">GROWTH PREDICTION REPORT</div><h2>成長ホルモン治療 成長予測レポート</h2></div>
+      </header>`;
+    const foot = n => `<div class="p-foot"><span>${CLINIC}　｜　発行日：${rdate}</span><span>検査結果をもとにしたレポートです　${n} / 2</span></div>`;
+    paper.innerHTML = `<article class="paper">
+      ${head}
+      <div class="p-bar">
+        <div><span class="name">${sex === 'male' ? 'シンセル太郎' : 'シンセル花子'} 様</span><span class="meta">${sex === 'male' ? '男の子' : '女の子'} ／ ${r.ageText}</span><span class="demo">SAMPLE</span></div>
+        <div class="date">測定日：${mdate}</div>
+      </div>
+
+      <section class="blk">
+        <div class="sh"><div class="sh-title"><span class="num">1</span>お子さまの現在の状況</div><div class="sh-en">CURRENT STATUS</div></div>
+        <div class="cards">
+          <div class="card"><div class="card-label">現在の身長</div><div class="card-value">${f1(height)}<span class="unit">cm</span></div></div>
+          <div class="card"><div class="card-label">現在の体重</div><div class="card-value">${weight != null ? f1(weight) + '<span class="unit">kg</span>' : '<span class="na">未測定</span>'}</div></div>
+          <div class="card tinted"><div class="card-label">同年齢との比較（SD値）</div><div class="card-value accent">${r.sdsText}<span class="unit">SD</span></div></div>
+        </div>
+        <div class="cards small">
+          <div class="card"><div class="card-label">骨年齢</div><div class="card-value">${r.boneAgeText ? r.boneAgeText + '<span class="unit">歳</span>' : '<span class="na">未測定</span>'}</div>${r.boneAgeNote ? `<div class="card-sub">${esc(r.boneAgeNote)}</div>` : ''}</div>
+          <div class="card"><div class="card-label">IGF-1</div><div class="card-value">${igf1 ? fg(igf1) + '<span class="unit">ng/mL</span>' : '<span class="na">未測定</span>'}</div></div>
+          <div class="card"><div class="card-label">リュープリン</div><div class="card-value text">${$('leup').checked ? '併用中' : '併用なし'}</div></div>
+        </div>
+        ${r.labCards.length ? `<div class="cards small c4">${r.labCards.map(c => `<div class="card"><div class="card-label">${esc(c.label)}</div><div class="card-value">${c.value ? esc(c.value) + (c.unit ? `<span class="unit">${c.unit}</span>` : '') : '<span class="na">未測定</span>'}</div>${c.note ? `<div class="card-sub">${esc(c.note)}</div>` : ''}</div>`).join('')}</div>` : ''}
+        <p class="tag-line"><span class="tag">身長</span>${esc(r.sdsDescription)}</p>
+      </section>
+
+      <section class="blk">
+        <div class="sh"><div class="sh-title"><span class="num">2</span>ご両親の身長から見た予測身長</div><div class="sh-en">GENETIC TARGET</div></div>
+        <div class="cards">
+          <div class="card"><div class="card-label">お父さまの身長</div><div class="card-value">${father != null ? f1(father) + '<span class="unit">cm</span>' : '<span class="na">-</span>'}</div></div>
+          <div class="card"><div class="card-label">お母さまの身長</div><div class="card-value">${mother != null ? f1(mother) + '<span class="unit">cm</span>' : '<span class="na">-</span>'}</div></div>
+          <div class="card tinted"><div class="card-label">遺伝的予測身長</div><div class="card-value accent">${r.geneticTarget ? '<span class="approx">約</span>' + f1(r.geneticTarget) + '<span class="unit">cm</span>' : '<span class="na">-</span>'}</div></div>
+        </div>
+        <p class="r-note">ご両親の身長から算出した成人身長の目安です。実際の身長は、成長のペースや思春期の時期によって変わります。</p>
+      </section>
+
+      <section class="blk">
+        <div class="sh"><div class="sh-title"><span class="num">3</span>成長ホルモン治療をした場合の予測</div><div class="sh-en">PREDICTION</div></div>
+        <div class="pred">
+          <div class="pu"><div class="card-label">治療しない場合の成人身長</div><div class="p-value grey range">${r.untreatedRange}<span class="unit">cm</span></div><div class="card-sub">真ん中の値 ${f1(r.untreated)}cm</div></div>
+          <div class="pe"><div class="card-label">治療による期待増加</div><div class="p-value bright">${r.effectText}<span class="unit">cm</span></div><div class="card-sub">骨年齢・成熟度・採血の値から算出</div></div>
+          <div class="pt"><div class="card-label">GH治療をした場合の成人身長</div><div class="p-value dark range">${r.treatedRange}<span class="unit">cm</span></div><div class="card-sub">真ん中の値 ${f1(r.treated)}cm</div></div>
+        </div>
+        ${r.breakdown.length ? `<div class="bd"><span class="h">期待増加の内訳</span>${r.breakdown.map(b => `<span><span class="l">${esc(b.label)}</span><span class="v">${b.value}cm</span></span>`).join('')}</div>` : ''}
+        <p class="tag-line"><span class="tag">算出方法</span>${esc(r.maturityNote)}</p>
+        ${r.notes.map(n => `<p class="tag-line"><span class="tag">調整</span>${esc(n)}</p>`).join('')}
+        <p class="r-note">「治療しない場合」は骨年齢・思春期の進み具合から見た体の成熟度を基準にした推定値、「GH治療をした場合」は当院で設定している年齢別の期待効果に骨年齢・思春期の進行度などに応じた調整を加えた値です。成人身長は、身長の予測に通常見られる誤差を考えて、真ん中の値から上下1.7cmの幅でお示ししています（幅の下の端は、今の身長より低くはしていません）。<strong>いずれも検査結果をもとにした予測値であり、目安としてお考えください。</strong></p>
+      </section>
+
+      <section class="blk">
+        <div class="sh"><div class="sh-title"><span class="num">4</span>成長曲線と成人身長の予測</div><div class="sh-en">GROWTH CHART</div></div>
+        <div class="chart-card">${growthChart(r)}</div>
+      </section>
+      ${foot(1)}
+      </article>
+      <article class="paper">
+      ${head}
+
+      ${r.outlook.length ? `<section class="blk">
+        <div class="sh"><div class="sh-title"><span class="num">5</span>1年後の見通し</div><div class="sh-en">OUTLOOK</div></div>
+        <div class="cards c2">
+          <div class="card" style="padding:6px">${outlookChart(height, r.outlook)}</div>
+          <div class="card" style="text-align:left">
+            <table class="outlook-table">
+              <tr><th></th>${r.outlook.map(o => `<th class="${o.label === '1年後' ? 'hl' : ''}">${o.label}</th>`).join('')}</tr>
+              <tr><td class="row-label">治療しない場合</td>${r.outlook.map(o => `<td class="num grey ${o.label === '1年後' ? 'hl' : ''}">${f1(o.untreated)}</td>`).join('')}</tr>
+              <tr><td class="row-label">GH治療をした場合</td>${r.outlook.map(o => `<td class="num dark ${o.label === '1年後' ? 'hl' : ''}">${f1(o.treated)}</td>`).join('')}</tr>
+              <tr><td class="row-label">治療による差</td>${r.outlook.map(o => `<td class="num bright ${o.label === '1年後' ? 'hl' : ''}">${(o.difference >= 0 ? '+' : '') + f1(o.difference)}</td>`).join('')}</tr>
+            </table>
+            <p class="r-note">単位：cm。治療は続けるほど差が広がっていきます。長期的な見通しの目安としてご覧ください。</p>
+          </div>
+        </div>
+      </section>` : ''}
+
+      <section class="blk">
+        <div class="sh"><div class="sh-title"><span class="num">${r.outlook.length ? 6 : 5}</span>成長のペース</div><div class="sh-en">GROWTH PACE</div></div>
+        <div class="cards pace">
+          <div class="card"><span class="pill${warnV ? ' warn' : ''}">1年間の伸び</span><div class="pace-head${warnV ? ' warn' : (v.available ? '' : ' muted')}">${esc(v.label)}</div><p>${esc(v.description)}</p>${v.sourceNote ? `<p class="source">※${esc(v.sourceNote)}</p>` : ''}</div>
+          <div class="card"><span class="pill">思春期の状況</span><div class="pace-head">${GH.TANNER_LABEL[r.stage]}</div><p>${REMAINING[r.stage]}</p></div>
+          <div class="card"><span class="pill">出生時の体格</span><div class="pace-head muted">記録なし</div><p>出生時の身長・体重の記録がないため、評価していません。診察時に母子手帳で確認させてください。</p></div>
+        </div>
+      </section>
+
+      <section class="blk">
+        <div class="sh"><div class="sh-title"><span class="num">${r.outlook.length ? 7 : 6}</span>今後の流れ</div><div class="sh-en">NEXT STEPS</div></div>
+        <div class="steps">
+          <div><div class="step-no">STEP 01</div><div class="step-title">結果のご説明</div><span class="badge">オンライン</span><p>本レポートをもとに、担当医が検査結果と成長の見通しをご説明します。</p></div>
+          <div><div class="step-no">STEP 02</div><div class="step-title">治療方針のご相談</div><span class="badge">オンライン</span><p>治療の要否・期間・費用をご説明し、ご納得いただいた場合のみ治療を開始します。</p></div>
+          <div><div class="step-no">STEP 03</div><div class="step-title">定期診察・経過フォロー</div><span class="badge">検査施設・オンライン</span><p>定期的な診察と血液検査で、成長の様子と体調を確認しながら進めます。</p></div>
+        </div>
+      </section>
+
+      <div class="contact">
+        <div><div class="t">ご相談・ご不明な点は、お気軽にお問い合わせください</div><div class="s">公式LINE、またはお電話にて承ります</div></div>
+        <div class="r"><div class="c">${CLINIC}</div><div class="ph">&#9742; ${PHONE}</div></div>
+      </div>
+      <div class="about">
+        <div class="t">本レポートについて</div>
+        <p>・検査結果をもとにした予測であり、実際の成長とは差が生じる場合があります。</p>
+        <p>・治療効果には個人差があり、記載の数値を保証するものではありません。</p>
+        <p>・治療の要否・効果については、担当医が診察時にご説明いたします。</p>
+        <p class="sample">・本レポートはデモです。記載の患者名・数値はすべて架空のものです。</p>
+      </div>
+      ${foot(2)}
+      </article>`;
+  }
+
+  // ---------- LINE ----------
+  let lsex = 'male';
+  function bubble(text, me) { return `<div class="msg${me ? ' me' : ''}">${me ? '' : '<div class="av">GH</div>'}<div class="b">${esc(text)}</div></div>`; }
+  function updateLine() {
+    $('l-male').setAttribute('aria-pressed', String(lsex === 'male'));
+    $('l-female').setAttribute('aria-pressed', String(lsex === 'female'));
+    const ageRaw = $('l-age').value, hRaw = $('l-height').value, faRaw = $('l-father').value, moRaw = $('l-mother').value;
+    const age = GH.parseAge(ageRaw), h = GH.parseHeight(hRaw), fa = GH.parseHeight(faRaw), mo = GH.parseHeight(moRaw);
+    let html = bubble('成長予測サービス', true) + bubble('お子さまの性別を教えてください😊\n（男の子 / 女の子）\n\n（残り質問数：5問）');
+    html += bubble(lsex === 'male' ? '男の子' : '女の子', true) + bubble(lsex === 'male' ? '男の子ですね👦\n今、何歳ですか？\n\n（残り質問数：4問）' : '女の子ですね👧\n今、何歳ですか？\n\n（残り質問数：4問）');
+    html += bubble(ageRaw, true);
+    const kv = $('l-kv');
+    if (age == null) { $('talk').innerHTML = html + bubble('年齢を数字で教えてください🙏\n（例: 8）'); kv.innerHTML = ''; return; }
+    html += bubble(`${GH.ageLabel(age)}ですね！\n今の身長は何cmですか？📏\n\n（残り質問数：3問）`) + bubble(hRaw, true);
+    if (h == null) { $('talk').innerHTML = html + bubble('身長を数字で教えてください🙏\n（例: 120）'); kv.innerHTML = ''; return; }
+    html += bubble(`${f1(h)}cmですね！\nお父さまの身長は何cmですか？\n\n（残り質問数：2問）`) + bubble(faRaw, true);
+    if (fa == null) { $('talk').innerHTML = html + bubble('身長を数字で教えてください🙏\n（例: 175）'); kv.innerHTML = ''; return; }
+    html += bubble(`お父さま${GH.pyRound(fa)}cmですね！\nお母さまの身長は何cmですか？\n\n（残り質問数：1問）`) + bubble(moRaw, true);
+    if (mo == null) { $('talk').innerHTML = html + bubble('身長を数字で教えてください🙏\n（例: 158）'); kv.innerHTML = ''; return; }
+    const p = GH.line(lsex, age, h, fa, mo);
+    html += bubble(GH.lineMessage(lsex, age, h, p));
+    $('talk').innerHTML = html;
+    kv.innerHTML = `<dt>読み取った年齢</dt><dd>${GH.ageLabel(age)}</dd><dt>計算に使った年齢</dt><dd>${p.calculation_age.toFixed(2)}歳</dd><dt>治療なし</dt><dd>${p.untreated_min}〜${p.untreated_max}cm</dd><dt>上乗せの目安</dt><dd>${p.needs_exam ? '数字は出さず精密検査へ案内' : (p.gh_effect_min === p.gh_effect_max ? p.gh_effect_min : p.gh_effect_min + '〜' + p.gh_effect_max) + 'cm'}</dd><dt>ご両親の目安</dt><dd>${f1(p.genetic_target)}cm（計算には混ぜない）</dd>`;
+  }
+  $('l-male').addEventListener('click', () => { lsex = 'male'; updateLine(); });
+  $('l-female').addEventListener('click', () => { lsex = 'female'; updateLine(); });
+  $('lf').addEventListener('input', updateLine);
+  $('lf').addEventListener('submit', e => e.preventDefault());
+
+  // ---------- タブ ----------
+  function show(tab) {
+    const isLine = tab === 'line';
+    $('tab-precise').setAttribute('aria-selected', String(!isLine));
+    $('tab-line').setAttribute('aria-selected', String(isLine));
+    $('view-precise').hidden = isLine;
+    $('view-line').hidden = !isLine;
+  }
+  $('tab-precise').addEventListener('click', () => { show('precise'); try { history.replaceState(null, '', '#precise'); } catch (e) {} });
+  $('tab-line').addEventListener('click', () => { show('line'); try { history.replaceState(null, '', '#line'); } catch (e) {} });
+  window.addEventListener('hashchange', () => show(location.hash === '#line' ? 'line' : 'precise'));
+  show(location.hash === '#line' ? 'line' : 'precise');
+
+  loadPreset(0);
+  updateLine();
+})();
+</script>
+
+</html>
