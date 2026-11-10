@@ -159,6 +159,11 @@ main.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-
 .pill.warn { border-color: var(--r-target); color: var(--r-warn); }
 .pace-head { font-size: 16.5px; font-weight: 700; color: var(--r-text); margin: 4px 0 3px; }
 .pace-head.warn { color: var(--r-warn); } .pace-head.muted { color: var(--r-grey); }
+.habits .card { text-align: left; }
+.habit-head { margin-bottom: 3px; }
+.habit-title { font-size: 13.5px; font-weight: 700; color: var(--r-text); margin-right: 6px; }
+.habit-current { font-size: 10.5px; color: var(--r-sub); }
+.habits p { font-size: 10.5px; color: var(--r-sub); line-height: 1.6; }
 .pace p { font-size: 10.5px; color: var(--r-sub); line-height: 1.65; }
 .pace p.source { margin-top: 3px; font-size: 9.5px; color: var(--r-sub3); }
 .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--r-line); border-radius: 9px; }
@@ -288,6 +293,18 @@ footer.site p { margin: 0; max-width: 90ch; }
               <label class="a-field"><span>身長（cm）</span><input type="number" id="prev-height" step="0.1"></label>
             </div>
             <p class="a-help" style="margin-top:6px">約3か月〜2年前の測定なら、半年後〜1年後の見通しに実際の伸びを混ぜます。</p>
+          </div>
+          <div class="a-card">
+            <h2>問診票（任意）</h2>
+            <div class="a-grid">
+              <label class="a-field"><span>ここ1年間の伸び（cm）</span><input type="number" id="q-growth" step="0.1"><p class="a-help">前回の測定がないときだけ、成長のペースに使います</p></label>
+              <label class="a-field"><span>睡眠時間</span><select id="q-sleep"><option value="">未回答</option><option value="under6">6時間未満</option><option value="6to8">6〜8時間</option><option value="8to10">8〜10時間</option><option value="over10">10時間以上</option></select></label>
+              <label class="a-field"><span>日光浴・外遊び</span><select id="q-sun"><option value="">未回答</option><option value="often">よくする</option><option value="sometimes">時々する</option><option value="rarely">あまりしない</option></select></label>
+              <label class="a-field"><span>食欲</span><select id="q-appetite"><option value="">未回答</option><option value="good">良好</option><option value="normal">普通</option><option value="poor">不良（小食・偏食がある）</option></select></label>
+              <label class="a-field"><span>在胎週数（週）</span><input type="number" id="q-weeks" step="1"></label>
+              <label class="a-field"><span>出生時の身長（cm）</span><input type="number" id="q-bh" step="0.1"></label>
+              <label class="a-field"><span>出生時の体重（g）</span><input type="number" id="q-bw" step="1"></label>
+            </div>
           </div>
         </form>
         <div class="a-alert" id="alerts"></div>
@@ -834,10 +851,45 @@ const GH = (() => {
     if (!ref) return { available: true, label: '参考値なし', level: 'unknown', description: `1年間で${fmt(velocity)}cm伸びています。この年齢帯の標準値は設定されていません。` };
     const [mean, sd] = ref;
     const sds = pyRound((velocity - mean) / sd, 2);
-    if (sds >= 1.0) return { available: true, label: '速い', level: 'high', description: `1年間で${fmt(velocity)}cm伸びており、この時期の標準（約${fmt(mean)}cm/年）より速いペースです。思春期の伸びが始まっている可能性があります。` };
+    if (sds >= 1.0) return { available: true, label: '多め', level: 'high', description: `1年間で${fmt(velocity)}cm伸びており、この時期の標準（約${fmt(mean)}cm/年）より多めのペースです。思春期の伸びが始まっている可能性があります。` };
     if (sds >= -1.0) return { available: true, label: '標準的', level: 'normal', description: `1年間で${fmt(velocity)}cm伸びており、この時期の標準（約${fmt(mean)}cm/年）と同程度のペースです。` };
-    if (sds >= -2.0) return { available: true, label: 'やや遅め', level: 'low', description: `1年間の伸びが${fmt(velocity)}cmで、この時期の標準（約${fmt(mean)}cm/年）よりやや遅いペースです。` };
-    return { available: true, label: '遅い', level: 'very_low', description: `1年間の伸びが${fmt(velocity)}cmで、この時期の標準（約${fmt(mean)}cm/年）を大きく下回っています。詳しい検査をおすすめします。` };
+    if (sds >= -2.0) return { available: true, label: 'やや少なめ', level: 'low', description: `1年間で${fmt(velocity)}cm伸びており、この時期の標準（約${fmt(mean)}cm/年）より少なめのペースです。` };
+    return { available: true, label: '少ない', level: 'very_low', description: `1年間で${fmt(velocity)}cm伸びており、この時期の標準（約${fmt(mean)}cm/年）を大きく下回っています。詳しい検査をおすすめします。` };
+  }
+  // 出生時の体格（counseling_service._evaluate_sga と同じ）
+  const BIRTH_REF = {
+    male: { 34: [2130, 320, 44.5, 2.0], 35: [2340, 340, 45.6, 2.0], 36: [2540, 350, 46.6, 2.0], 37: [2740, 360, 47.5, 2.0], 38: [2920, 370, 48.3, 2.0], 39: [3070, 380, 49.0, 2.0], 40: [3200, 390, 49.6, 2.0], 41: [3300, 400, 50.1, 2.0], 42: [3370, 410, 50.4, 2.0] },
+    female: { 34: [2050, 310, 44.1, 2.0], 35: [2250, 330, 45.2, 2.0], 36: [2450, 340, 46.2, 2.0], 37: [2640, 350, 47.1, 2.0], 38: [2820, 360, 47.9, 2.0], 39: [2960, 370, 48.5, 2.0], 40: [3080, 380, 49.1, 2.0], 41: [3180, 390, 49.6, 2.0], 42: [3250, 400, 49.9, 2.0] },
+  };
+  function evaluateSga(weeks, bh, bw, sex) {
+    const r = { available: false, level: 'unknown', label: '判定不能', description: '在胎週数または出生時の記録が不足しているため、判定していません。' };
+    if (weeks == null || (bh == null && bw == null)) return r;
+    const T = BIRTH_REF[sex] || BIRTH_REF.male;
+    const w = Math.trunc(Number(weeks));
+    const ref = T[w] || (w > 42 ? T[42] : null);
+    if (!ref) { r.description = `在胎${w}週は参照表の範囲外のため、判定していません。`; return r; }
+    const hs = bh != null ? pyRound((Number(bh) - ref[2]) / ref[3], 2) : null;
+    const ws = bw != null ? pyRound((Number(bw) - ref[0]) / ref[1], 2) : null;
+    r.available = true;
+    const below = [hs, ws].filter(s => s != null && s < -2.0), measured = [hs, ws].filter(s => s != null);
+    if (below.length >= 2) Object.assign(r, { level: 'likely', label: '該当の可能性あり', description: '出生時の身長・体重がいずれも在胎週数の標準を下回っています。SGA（小さく生まれたお子様）に該当する可能性があります。' });
+    else if (below.length === 1) Object.assign(r, { level: 'possible', label: '要確認', description: '出生時の身長・体重のいずれかが在胎週数の標準を下回っています。診察時に母子手帳で詳細を確認させてください。' });
+    else if (measured.length) Object.assign(r, { level: 'unlikely', label: '標準', description: '出生時の身長・体重は、在胎週数の標準範囲内です。' });
+    return r;
+  }
+  // 毎日の生活でできること（counseling_service._build_lifestyle_advice と同じ）
+  const HABIT = { sleep: { under6: '6時間未満', '6to8': '6〜8時間', '8to10': '8〜10時間', over10: '10時間以上' }, sun: { often: 'よく外で過ごす', sometimes: '週に数回', rarely: 'あまりしない' }, appetite: { good: 'よく食べる', normal: '普通', poor: '少食気味' } };
+  function lifestyleAdvice(q) {
+    const a = [];
+    if (!q) return a;
+    if (q.sleep === 'under6' || q.sleep === '6to8') a.push({ title: '睡眠', current: HABIT.sleep[q.sleep], comment: '成長ホルモンは睡眠中に多く分泌されます。就寝時間を早め、睡眠時間を確保できるとより望ましい状態になります。' });
+    else if (q.sleep === '8to10' || q.sleep === 'over10') a.push({ title: '睡眠', current: HABIT.sleep[q.sleep], comment: '十分な睡眠がとれています。成長ホルモンは睡眠中に多く分泌されるため、今の就寝リズムを続けましょう。' });
+    if (q.sun === 'rarely') a.push({ title: '日光浴・外遊び', current: HABIT.sun[q.sun], comment: '日光を浴びることで骨の成長に必要なビタミンDが作られます。短時間でも外で過ごす時間を増やしてみてください。' });
+    else if (q.sun === 'sometimes') a.push({ title: '日光浴・外遊び', current: HABIT.sun[q.sun], comment: '日光を浴びることで骨の成長に必要なビタミンDが作られます。できれば毎日、短時間でも外で過ごしましょう。' });
+    else if (q.sun === 'often') a.push({ title: '日光浴・外遊び', current: HABIT.sun[q.sun], comment: '外で過ごす習慣がついています。ビタミンD生成の面から良い状態です。' });
+    if (q.appetite === 'poor') a.push({ title: '食事', current: HABIT.appetite[q.appetite], comment: '食べる量がやや少なめです。主食に加え、たんぱく質・カルシウムを毎食少しずつ取り入れてみてください。' });
+    else if (q.appetite === 'good' || q.appetite === 'normal') a.push({ title: '食事', current: HABIT.appetite[q.appetite], comment: '食事はしっかりとれています。たんぱく質・カルシウムを意識するとさらに良いでしょう。' });
+    return a;
   }
 
   // 入力: { sex, birth, date, height, weight, boneAge, checks, menarcheAge, labs:{testosterone,lh,fsh,estradiol,alp}, prev:{date,height}|null, missed, father, mother, igf1 }
@@ -889,14 +941,14 @@ const GH = (() => {
     const effect = pyRound(T - U, 1);
     const items = [];
     const b = t.breakdown;
-    const add = (label, key, isSigned = true) => {
-      const v = b[key]; if (v == null) return;
-      if (isSigned && Math.abs(v) < 0.05) return;
+    const add = (label, key, isSigned = true, always = false) => {
+      let v = b[key]; if (v == null) { if (!always) return; v = 0; }
+      if (isSigned && Math.abs(v) < 0.05) { if (always) items.push({ label, value: '±0.0' }); return; }
       items.push({ label, value: isSigned ? fmtSignedRaw(v) : '+' + fmt(v) });
     };
     add('年齢別の期待効果', 'gh_base_effect', false);
-    add('骨年齢による調整', 'bone_age_adjustment');
-    add('思春期による調整', 'puberty_adjustment');
+    add('骨年齢による調整', 'bone_age_adjustment', true, boneAge != null);
+    add('思春期による調整', 'puberty_adjustment', true, true);
     if (b.maturity_limit_reason === 'floor') add('最低見込み（2cm）への調整', 'maturity_limit_adjustment');
     else if (['closure', 'alp', 'menarche'].includes(b.maturity_limit_reason)) add('成長の残り期間による調整', 'maturity_limit_adjustment');
     const range = (c, floor) => `${fmt(Math.max(c - HALF_RANGE, floor))}〜${fmt(c + HALF_RANGE)}`;
@@ -912,6 +964,8 @@ const GH = (() => {
       if (prevYears >= 0.5 && prevYears <= 1.5) { vel = (h - prevH) / prevYears; const mo = pyRound(prevYears * 12); if (mo !== 12) velNote = `直近${mo}か月の測定から1年あたりに換算`; }
       else if (prevYears >= 0.25) { vel = (h - prevH) / prevYears; velNote = `直近${pyRound(prevYears * 12)}か月の測定から1年あたりに換算`; }
     }
+    const Q = inp.questionnaire || null;
+    if (vel == null && Q && Q.growthLastYear != null) { vel = Number(Q.growthLastYear); velNote = '問診票のご回答より'; }
     const reportMaturity = estimateMaturity({ sex, ca, tanner: stage >= 2 ? stage : 1, boneAge, menarcheAge, confirmedPrepubertal: !pubertyStarted, testosterone: L.testosterone, lh: L.lh, estradiol: L.estradiol });
     const velocityEval = evaluateVelocity(vel != null ? pyRound(vel, 1) : null, reportMaturity.bio, sex);
     velocityEval.sourceNote = velNote;
@@ -927,6 +981,9 @@ const GH = (() => {
       maturityMethod: maturity.method, bioAge: maturity.bio,
       breakdown: items, reason: b.maturity_limit_reason, finalGh: b.final_gh_effect,
       notes: b.notes, alerts, outlook, velocity: velocityEval,
+      ghVariance: effect > 0 && !['closure', 'alp', 'menarche'].includes(b.maturity_limit_reason) ? fmt(smoothBand(ca)[1]) : null,
+      sga: Q ? evaluateSga(Q.weeks, Q.birthHeight, Q.birthWeight, sex) : null,
+      lifestyle: lifestyleAdvice(Q),
       geneticTarget: genetic(inp.father, inp.mother, sex),
       trajectory: t.traj, standards: stds,
       history: (inp.prev && inp.prev.date && inp.prev.height != null) ? [{ age: calculateAge(inp.birth, inp.prev.date), height: prevH }, { age: ca, height: h }] : [{ age: ca, height: h }],
@@ -991,7 +1048,7 @@ const GH = (() => {
     return `ありがとうございます！\n予測結果をお伝えしますね🌈\n\n━━━━━━━━━━━━━━━━━\n${emoji} ${ageLabel(age)}の${sexLabel}（現在${fmt(height)}cm）\n━━━━━━━━━━━━━━━━━\n\n🌱 自然に成長した場合\n　→ 約 ${p.untreated_min}〜${p.untreated_max} cm\n\n${parent}${treatment}\n━━━━━━━━━━━━━━━━━\n\n※今の身長と年齢から計算した簡易予測です。\n骨年齢がわかると、より正確になります。\n詳しい診断はカウンセリングで！\n\n⚠️ 成長ホルモン治療は「開始が早いほど効果が出やすい治療」です。\n骨の成長が進んでしまうと、同じ治療でも伸び幅は大きく制限されてしまいます。\nつまり、「あとでやろう」と思った時には、取り返せない可能性があります。\n\n📅 無料カウンセリング予約は、下部メニューからご予約ください。`;
   }
 
-  return { precise, line, lineMessage, parseAge, parseHeight, ageLabel, pyRound, fmt, standards, calculateAge, addDays, TANNER_LABEL, tannerFromChecks };
+  return { smoothBand, evaluateSga, lifestyleAdvice, evaluateVelocity, precise, line, lineMessage, parseAge, parseHeight, ageLabel, pyRound, fmt, standards, calculateAge, addDays, TANNER_LABEL, tannerFromChecks };
 })();
 
 
@@ -1013,11 +1070,11 @@ const GH = (() => {
   };
   const REMAINING = { 1: 'まだ思春期前の段階で、身長が伸びる期間が十分に残っています。', 2: '思春期が始まったばかりの段階です。身長が伸びる期間はまだ残っています。', 3: '思春期の中盤にさしかかっています。身長が伸びる期間は限られてきています。', 4: '思春期の後半にあたります。身長が伸びる期間は残りわずかと考えられます。', 5: '身体の成熟が進んでおり、身長の伸びはほぼ終わりに近づいていると考えられます。' };
   const PRESETS = [
-    { name: '小5男子・背が低め・骨年齢が遅れ', sex: 'male', birth: '2016-01-15', height: 128.0, weight: 25.4, ba: 9.4, checks: [], labs: { t: 0, lh: 0.1, fsh: 1.2, alp: 280 }, prev: ['2025-11-08', 123.4], father: 168, mother: 155, igf1: 210, missed: 0 },
+    { name: '小5男子・背が低め・骨年齢が遅れ', sex: 'male', birth: '2016-01-15', height: 128.0, weight: 25.4, ba: 9.4, checks: [], labs: { t: 0, lh: 0.1, fsh: 1.2, alp: 280 }, prev: ['2025-11-08', 123.4], father: 168, mother: 155, igf1: 210, missed: 0, q: { sleep: '8to10', sun: 'sometimes', appetite: 'poor', weeks: 39, bh: 49.0, bw: 3050 } },
     { name: '小6男子・この1年でぐっと伸びた', sex: 'male', birth: '2014-07-10', height: 146.0, weight: 37.8, ba: 12.8, checks: ['testis_enlarged', 'growth_spurt'], labs: { t: 1.2, lh: 1.8, fsh: 3.1, alp: 420 }, prev: ['2025-11-01', 137.5], father: 175, mother: 160, igf1: 380, missed: 0 },
     { name: '中2男子・骨年齢15.5・ALP低め', sex: 'male', birth: '2012-06-03', height: 158.0, weight: 46.2, ba: 15.5, checks: ['testis_enlarged', 'penis_enlarged', 'pubic_hair', 'voice_change'], labs: { t: 3.8, lh: 3.2, fsh: 4.0, alp: 140 }, prev: ['2026-05-10', 156.4], father: 170, mother: 156, igf1: 330, missed: 2 },
     { name: '高1男子・骨端線が閉じている', sex: 'male', birth: '2010-10-01', height: 162.0, weight: 52.0, ba: 16.5, checks: ['testis_enlarged', 'penis_enlarged', 'pubic_hair', 'axillary_hair', 'voice_change'], labs: { t: 5.1, lh: 4.0, fsh: 5.2, alp: 95 }, prev: null, father: 168, mother: 154, igf1: 300, missed: 0 },
-    { name: '小2女子・平均的', sex: 'female', birth: '2018-08-01', height: 124.0, weight: 23.0, ba: 8.0, checks: [], labs: {}, prev: null, father: 172, mother: 158, igf1: 180, missed: 0 },
+    { name: '小2女子・平均的', sex: 'female', birth: '2018-08-01', height: 124.0, weight: 23.0, ba: 8.0, checks: [], labs: {}, prev: null, father: 172, mother: 158, igf1: 180, missed: 0, q: { growth: 5.6, sleep: 'over10', sun: 'often', appetite: 'normal', weeks: 37, bh: 44.0, bw: 2600 } },
     { name: '中1女子・初経から1年', sex: 'female', birth: '2013-09-20', height: 145.0, weight: 38.5, ba: 13.2, checks: ['breast_budding', 'breast_developed', 'pubic_hair', 'menarche'], menarche: 12.1, labs: { e2: 85, lh: 3.5, fsh: 4.8, alp: 190 }, prev: ['2025-11-15', 141.0], father: 166, mother: 153, igf1: 290, missed: 0 },
   ];
   let sex = 'male';
@@ -1035,6 +1092,10 @@ const GH = (() => {
   }
   function currentChecks() { const c = {}; document.querySelectorAll('#checks input[type=checkbox]').forEach(el => { c[el.dataset.k] = el.checked; }); return c; }
   function setSex(s, keep) { sex = s; $('sex-male').setAttribute('aria-pressed', String(s === 'male')); $('sex-female').setAttribute('aria-pressed', String(s === 'female')); renderChecks(keep); }
+  function questionnaire() {
+    const q = { growthLastYear: num('q-growth'), sleep: $('q-sleep').value, sun: $('q-sun').value, appetite: $('q-appetite').value, weeks: num('q-weeks'), birthHeight: num('q-bh'), birthWeight: num('q-bw') };
+    return Object.values(q).some(v => v != null && v !== '') ? q : null;
+  }
   function loadPreset(i) {
     const p = PRESETS[i];
     document.querySelectorAll('#presets button').forEach((b, j) => b.setAttribute('aria-pressed', String(j === i)));
@@ -1046,6 +1107,9 @@ const GH = (() => {
     $('igf1').value = p.igf1 ?? ''; $('missed').value = p.missed ?? 0; $('leup').checked = false;
     $('prev-date').value = p.prev ? p.prev[0] : ''; $('prev-height').value = p.prev ? p.prev[1] : '';
     $('father').value = p.father ?? ''; $('mother').value = p.mother ?? '';
+    const q = p.q || {};
+    $('q-growth').value = q.growth ?? ''; $('q-sleep').value = q.sleep ?? ''; $('q-sun').value = q.sun ?? ''; $('q-appetite').value = q.appetite ?? '';
+    $('q-weeks').value = q.weeks ?? ''; $('q-bh').value = q.bh ?? ''; $('q-bw').value = q.bw ?? '';
     update();
   }
   $('presets').innerHTML = PRESETS.map((p, i) => `<button type="button" aria-pressed="${i === 0}">${p.name}</button>`).join('');
@@ -1150,6 +1214,7 @@ const GH = (() => {
       labs: { testosterone: sex === 'male' ? num('t') : null, estradiol: sex === 'female' ? num('e2') : null, lh: num('lh'), fsh: num('fsh'), alp: num('alp') },
       prev: prevDate && prevH != null && prevDate < date ? { date: prevDate, height: prevH } : null,
       missed: num('missed') || 0, father: num('father'), mother: num('mother'), igf1: num('igf1'),
+      questionnaire: questionnaire(),
     };
     let r;
     try { r = GH.precise(inp); } catch (e) { paper.innerHTML = `<article class="paper"><p class="a-err">計算できませんでした（${esc(e.message)}）。入力を見直してください。</p></article>`; return; }
@@ -1203,14 +1268,13 @@ const GH = (() => {
       <section class="blk">
         <div class="sh"><div class="sh-title"><span class="num">3</span>成長ホルモン治療をした場合の予測</div><div class="sh-en">PREDICTION</div></div>
         <div class="pred">
-          <div class="pu"><div class="card-label">治療しない場合の成人身長</div><div class="p-value grey range">${r.untreatedRange}<span class="unit">cm</span></div><div class="card-sub">真ん中の値 ${f1(r.untreated)}cm</div></div>
-          <div class="pe"><div class="card-label">治療による期待増加</div><div class="p-value bright">${r.effectText}<span class="unit">cm</span></div><div class="card-sub">骨年齢・成熟度・採血の値から算出</div></div>
-          <div class="pt"><div class="card-label">GH治療をした場合の成人身長</div><div class="p-value dark range">${r.treatedRange}<span class="unit">cm</span></div><div class="card-sub">真ん中の値 ${f1(r.treated)}cm</div></div>
+          <div class="pu"><div class="card-label">治療しない場合の成人身長</div><div class="p-value grey">${f1(r.untreated)}<span class="unit">cm</span></div><div class="card-sub">予測の幅 ${r.untreatedRange}cm</div></div>
+          <div class="pe"><div class="card-label">治療による期待増加</div><div class="p-value bright">${r.effectText}<span class="unit">cm</span></div>${r.ghVariance ? `<div class="card-sub">予測精度 ±${r.ghVariance}cm</div>` : ''}</div>
+          <div class="pt"><div class="card-label">GH治療をした場合の成人身長</div><div class="p-value dark">${f1(r.treated)}<span class="unit">cm</span></div><div class="card-sub">予測の幅 ${r.treatedRange}cm</div></div>
         </div>
         ${r.breakdown.length ? `<div class="bd"><span class="h">期待増加の内訳</span>${r.breakdown.map(b => `<span><span class="l">${esc(b.label)}</span><span class="v">${b.value}cm</span></span>`).join('')}</div>` : ''}
-        <p class="tag-line"><span class="tag">算出方法</span>${esc(r.maturityNote)}</p>
-        ${r.notes.map(n => `<p class="tag-line"><span class="tag">調整</span>${esc(n)}</p>`).join('')}
-        <p class="r-note">「治療しない場合」は骨年齢・思春期の進み具合から見た体の成熟度を基準にした推定値、「GH治療をした場合」は当院で設定している年齢別の期待効果に骨年齢・思春期の進行度などに応じた調整を加えた値です。成人身長は、身長の予測に通常見られる誤差を考えて、真ん中の値から上下1.7cmの幅でお示ししています（幅の下の端は、今の身長より低くはしていません）。<strong>いずれも検査結果をもとにした予測値であり、目安としてお考えください。</strong></p>
+        <p class="tag-line"><span class="tag">算出方法</span>${esc(r.maturityNote + r.notes.join(''))}</p>
+        <p class="r-note">「治療しない場合」は骨年齢・思春期の進み具合から見た体の成熟度を基準にした推定値、「GH治療をした場合」は当院で設定している年齢別の期待効果に骨年齢・思春期の進行度などに応じた調整を加えた値です。<strong>いずれも検査結果をもとにした予測値であり、目安としてお考えください。</strong></p>
       </section>
 
       <section class="blk">
@@ -1243,12 +1307,17 @@ const GH = (() => {
         <div class="cards pace">
           <div class="card"><span class="pill${warnV ? ' warn' : ''}">1年間の伸び</span><div class="pace-head${warnV ? ' warn' : (v.available ? '' : ' muted')}">${esc(v.label)}</div><p>${esc(v.description)}</p>${v.sourceNote ? `<p class="source">※${esc(v.sourceNote)}</p>` : ''}</div>
           <div class="card"><span class="pill">思春期の状況</span><div class="pace-head">${GH.TANNER_LABEL[r.stage]}</div><p>${REMAINING[r.stage]}</p></div>
-          <div class="card"><span class="pill">出生時の体格</span><div class="pace-head muted">記録なし</div><p>出生時の身長・体重の記録がないため、評価していません。診察時に母子手帳で確認させてください。</p></div>
+          ${r.sga && r.sga.available ? `<div class="card"><span class="pill${['possible', 'likely'].includes(r.sga.level) ? ' warn' : ''}">出生時の体格</span><div class="pace-head${['possible', 'likely'].includes(r.sga.level) ? ' warn' : ''}">${esc(r.sga.label)}</div><p>${esc(r.sga.description)}</p></div>` : `<div class="card"><span class="pill">出生時の体格</span><div class="pace-head muted">記録なし</div><p>出生時の身長・体重の記録がないため、評価していません。診察時に母子手帳で確認させてください。</p></div>`}
         </div>
       </section>
 
+      ${r.lifestyle.length ? `<section class="blk">
+        <div class="sh"><div class="sh-title"><span class="num">${r.outlook.length ? 7 : 6}</span>毎日の生活でできること</div><div class="sh-en">DAILY HABITS</div></div>
+        <div class="cards habits">${r.lifestyle.map(a => `<div class="card"><div class="habit-head"><span class="habit-title">${esc(a.title)}</span><span class="habit-current">現在：${esc(a.current)}</span></div><p>${esc(a.comment)}</p></div>`).join('')}</div>
+      </section>` : ''}
+
       <section class="blk">
-        <div class="sh"><div class="sh-title"><span class="num">${r.outlook.length ? 7 : 6}</span>今後の流れ</div><div class="sh-en">NEXT STEPS</div></div>
+        <div class="sh"><div class="sh-title"><span class="num">${(r.outlook.length ? 7 : 6) + (r.lifestyle.length ? 1 : 0)}</span>今後の流れ</div><div class="sh-en">NEXT STEPS</div></div>
         <div class="steps">
           <div><div class="step-no">STEP 01</div><div class="step-title">結果のご説明</div><span class="badge">オンライン</span><p>本レポートをもとに、担当医が検査結果と成長の見通しをご説明します。</p></div>
           <div><div class="step-no">STEP 02</div><div class="step-title">治療方針のご相談</div><span class="badge">オンライン</span><p>治療の要否・期間・費用をご説明し、ご納得いただいた場合のみ治療を開始します。</p></div>
