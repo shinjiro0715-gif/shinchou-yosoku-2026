@@ -237,6 +237,10 @@ main.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-
 .contact .t { font-size: 17px; } .contact .s, .contact .c { font-size: 13.5px; } .contact .ph { font-size: 27px; }
 .about .t { font-size: 14.5px; } .about p { font-size: 13px; line-height: 1.75; }
 /* parent-friendly-2 */
+/* parent-friendly-3 */
+.paper .blk { margin-bottom: 14px; }
+.paper .summary { margin-bottom: 14px; }
+.paper .card { padding: 8px 12px; }
 .paper .p-foot { font-size: 12px; }
 .summary li { grid-template-columns: 14.5em minmax(0, 1fr); padding: 6px 0; }
 .p-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin-top: 14px; padding-top: 8px; border-top: 0.8px solid var(--r-line); font-size: 10px; color: var(--r-sub3); }
@@ -1310,10 +1314,10 @@ const GH = (() => {
   const rankText = z => {
     if (z == null || isNaN(z)) return '';
     const pct = phi(z) * 100;
-    if (pct < 1) return '背の順で100人並ぶと、いちばん前くらい';
-    if (pct <= 50) return `背の順で100人並ぶと、前から約${Math.round(pct)}番目`;
-    if (100 - pct < 1) return '背の順で100人並ぶと、いちばん後ろくらい';
-    return `背の順で100人並ぶと、後ろから約${Math.round(100 - pct)}番目`;
+    if (pct < 1) return '背の順で100人中 いちばん前くらい';
+    if (pct <= 50) return `背の順で100人中 前から約${Math.round(pct)}番目`;
+    if (100 - pct < 1) return '背の順で100人中 いちばん後ろくらい';
+    return `背の順で100人中 後ろから約${Math.round(100 - pct)}番目`;
   };
   const LAB_NAME = { 'テストステロン': ['男性ホルモン', 'テストステロン'], 'エストラジオール': ['女性ホルモン', 'エストラジオール'], 'LH': ['思春期を始めるホルモン', 'LH'], 'FSH': ['思春期を始めるホルモン', 'FSH'], 'ALP（IFCC法）': ['骨が伸びる勢い', 'ALP（IFCC法）'] };
   const labLabel = l => LAB_NAME[l] ? `${LAB_NAME[l][0]}<small>${LAB_NAME[l][1]}</small>` : esc(l);
@@ -1365,7 +1369,7 @@ const GH = (() => {
       <section class="summary">
         <div class="sum-t">このレポートのまとめ</div>
         <ul>
-          <li><span class="k">今の身長</span><span><b>${f1(height)}</b>cm　${esc(plain(r.sdsDescription))}<span class="sub">${rankText(r.sds)}</span></span></li>
+          <li><span class="k">今の身長</span><span><b>${f1(height)}</b>cm　${rankText(r.sds)}<span class="sub">${esc(plain(r.sdsDescription))}</span></span></li>
           <li><span class="k">治療をしない場合</span><span>大人の身長は 約<b>${f1(r.untreated)}</b>cm の見込みです</span></li>
           ${r.effect > 0.05
             ? `<li><span class="k">成長ホルモン治療を続けた場合</span><span>約<b>${f1(r.treated)}</b>cm（<b>${r.effectText}</b>cm）の見込みです</span></li>`
