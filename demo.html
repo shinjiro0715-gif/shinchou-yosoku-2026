@@ -241,6 +241,15 @@ main.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-
 /* parent-friendly-4 */
 /* parent-friendly-5 */
 /* parent-friendly-6 */
+/* course-1-2 */
+.rec-line p { margin: 0 0 6px; }
+.rec-line svg { display: block; width: 100%; height: auto; }
+.pred.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.card-sub b { color: var(--r-dark); }
+.rec-line { margin-top: 10px; padding: 10px 14px; border: 1.5px solid var(--r-accent); border-radius: 9px; font-size: 14.5px; line-height: 1.7; background: #fff; }
+.rec { display: inline-block; background: var(--r-accent); color: #fff; font-weight: 700; font-size: 13px; padding: 1px 10px; border-radius: 4px; margin-right: 8px; vertical-align: 1px; }
+.outlook-table.crs td.num small { display: block; font-size: 12.5px; font-weight: 700; color: var(--r-accent); line-height: 1.3; }
+.p-value.mid { font-size: 20px; }
 .paper .p-bar { margin-bottom: 8px; } .paper .summary { padding: 11px 18px 8px; } .paper .p-head { margin-bottom: 8px; }
 .points { margin-top: 10px; background: var(--r-pale); border-radius: 9px; padding: 10px 16px 8px; }
 .points .pt-t { font-weight: 700; color: var(--r-dark); font-size: 15px; margin-bottom: 2px; }
@@ -775,7 +784,8 @@ const GH = (() => {
     return [total, reason, limited];
   }
   function yearDistribution(total, remaining) {
-    const s = remaining >= 5 ? [0.45, 0.25, 0.15, 0.10, 0.05] : remaining >= 3 ? [0.50, 0.30, 0.20] : [0.60, 0.40];
+    // 2026-11-11 先生判断：治療は1〜2年。期待効果は「2年治療した場合」の値で、2年で出し切る（1年目60%・2年目40%）
+    const s = [0.60, 0.40];
     return s.map(x => total * x);
   }
   function cumulative(dist, years) {
@@ -989,7 +999,7 @@ const GH = (() => {
       const b = o.b, base = b.gh_base_effect != null ? b.gh_base_effect : o.effect;
       const adh = b.adherence_adjustment != null ? b.adherence_adjustment : 0;
       const adj = pyRound(o.effect - base - adh, 1);
-      let t = `治療の上乗せ ${signed(o.effect)}cm は、この年齢で治療を始めた場合の目安`;
+      let t = `${o.oneEqualsTwo ? '治療の上乗せ' : '2年治療した場合の上乗せ'} ${signed(o.effect)}cm は、この年齢で治療を始めた場合の目安`;
       if (Math.abs(adj) < 0.05 && adh > -0.05) t += 'です。';
       else {
         t += `（+${fmt(base)}cm）`;
@@ -1133,6 +1143,19 @@ const GH = (() => {
       outlookYears.push({ label, untreated: ru, treated: rt, difference: pyRound(rt - ru, 1) });
     }
     if (outlookYears.length) outlookYears.push({ label: '大人', untreated: U, treated: T, difference: pyRound(T - U, 1) });
+    // course-1-2：2026-11-11「1年治療した場合」「2年治療した場合」。1年でやめても、それまでの差（1年後の差）は大人まで残る前提
+    const g1 = (() => {
+      const uu = valueAtAge(t.traj, ca + 1, 'untreated'), tt = valueAtAge(t.traj, ca + 1, 'treated');
+      return uu == null || tt == null ? effect : pyRound(pyRound(tt, 1) - pyRound(uu, 1), 1);
+    })();
+    const gain1 = Math.min(Math.max(g1, 0), effect);
+    const final1 = pyRound(U + gain1, 1);
+    // ⑤の行は1年後・2年後・大人だけ（3年後は出さない。治療は長くて2年のため）
+    const courses = {
+      gain1, gain2: effect, final1, final2: T, range1: range(final1, h), range2: range(T, h),
+      oneEqualsTwo: effect - gain1 < 0.05,
+      rows: outlookYears.filter(o => o.label !== '3年後').map(o => ({ label: o.label, untreated: o.untreated, one: Math.max(o.untreated, Math.min(pyRound(o.untreated + gain1, 1), o.treated)), two: o.treated })),
+    };
     // 成長のペース（前回の測定が0.5〜1.5年前ならその伸び、なければ3か月以上前を1年あたりに換算）
     let vel = null, velNote = null;
     if (inp.prev && inp.prev.date && inp.prev.height != null && prevYears > 0) {
@@ -1155,8 +1178,8 @@ const GH = (() => {
       maturityNote: describeMaturity(reportMaturity, boneAge != null ? boneAge - ageByMonth : null),
       maturityMethod: maturity.method, bioAge: maturity.bio,
       breakdown: items, reason: b.maturity_limit_reason, finalGh: b.final_gh_effect,
-      notes: b.notes, alerts, outlook, outlookYears, velocity: velocityEval,
-      parentPoints: parentPoints({ method: reportMaturity.method, boneAge, ageByMonth, maturityNote: describeMaturity(reportMaturity, boneAge != null ? boneAge - ageByMonth : null), effect, b, notes: b.notes }),
+      notes: b.notes, alerts, outlook, outlookYears, courses, velocity: velocityEval,
+      parentPoints: parentPoints({ method: reportMaturity.method, boneAge, ageByMonth, maturityNote: describeMaturity(reportMaturity, boneAge != null ? boneAge - ageByMonth : null), effect, b, notes: b.notes, gain1, oneEqualsTwo: courses.oneEqualsTwo }),
       ghVariance: effect > 0 && !['closure', 'alp', 'menarche'].includes(b.maturity_limit_reason) ? fmt(smoothBand(ca)[1]) : null,
       sga: Q ? evaluateSga(Q.weeks, Q.birthHeight, Q.birthWeight, sex) : null,
       lifestyle: lifestyleAdvice(Q),
@@ -1304,7 +1327,7 @@ const GH = (() => {
   function growthChart(r) {
     // 凡例は文字の幅を見積もって並べ、入りきらないときは2段にする（右端で切れないように）
     const legendW = t => [...t].reduce((w, c) => w + (c.charCodeAt(0) < 256 ? 10.5 : 19), 0) + 56;
-    const legendItems = [['band', '多くの子が入る範囲'], ['sd2', '低身長の目安'], ['un', `治療をしない場合 ${f1(r.untreated)}cm`], ['tr', `成長ホルモン治療をした場合 ${f1(r.treated)}cm`], ['mean', '同じ年齢の平均']].concat(r.history.length > 1 ? [['pt', 'これまでの測定']] : []);
+    const legendItems = [['band', '多くの子が入る範囲'], ['sd2', '低身長の目安'], ['un', `治療をしない場合 ${f1(r.untreated)}cm`], ...(r.effect > 0.05 && !r.courses.oneEqualsTwo ? [['one', `1年治療した場合 ${f1(r.courses.final1)}cm`], ['tr', `2年治療した場合 ${f1(r.treated)}cm`]] : [['tr', `成長ホルモン治療をした場合 ${f1(r.treated)}cm`]]), ['mean', '同じ年齢の平均']].concat(r.history.length > 1 ? [['pt', 'これまでの測定']] : []);
     const W = 1000, L = 84, R = 24, T = 16;
     const wrap = legendItems.reduce((w, it) => w + legendW(it[1]), 0) > W - L - R;
     const H = wrap ? 418 : 388, B = wrap ? 132 : 100;
@@ -1333,9 +1356,12 @@ const GH = (() => {
       s += `<text x="${L + 8}" y="${gy - 6}" fill="#9a6a32" font-size="19">ご両親から見た目安 ${f1(r.geneticTarget)}cm</text>`;
     }
     s += `<path d="${path(r.trajectory.map(p => [p.age, p.untreated]))}" fill="none" stroke="#9aa5ab" stroke-width="2.5" stroke-dasharray="8 5"/>`;
+    const showOne = r.effect > 0.05 && !r.courses.oneEqualsTwo, g1 = r.courses.gain1;
+    if (showOne) s += `<path d="${path(r.trajectory.map(p => [p.age, p.untreated + Math.min(p.treated - p.untreated, g1)]))}" fill="none" stroke="#3fb0ba" stroke-width="2.6"/>`;
     s += `<path d="${path(r.trajectory.map(p => [p.age, p.treated]))}" fill="none" stroke="#0a6e77" stroke-width="3.2"/>`;
     const last = r.trajectory[r.trajectory.length - 1];
     s += `<circle cx="${X(last.age)}" cy="${Y(last.untreated)}" r="6" fill="#9aa5ab"/><circle cx="${X(last.age)}" cy="${Y(last.treated)}" r="6" fill="#0a6e77"/>`;
+    if (showOne) s += `<circle cx="${X(last.age)}" cy="${Y(last.untreated + Math.min(last.treated - last.untreated, g1))}" r="5" fill="#3fb0ba"/>`;
     const past = r.history.slice(0, -1), cur = r.history[r.history.length - 1];
     past.forEach(p => { s += `<circle cx="${X(p.age)}" cy="${Y(p.height)}" r="4.5" fill="#0a6e77" opacity="0.85"/>`; });
     s += `<circle cx="${X(cur.age)}" cy="${Y(cur.height)}" r="8.5" fill="#fff" stroke="#0a6e77" stroke-width="3"/>`;
@@ -1345,7 +1371,7 @@ const GH = (() => {
     let lx = L, ly = wrap ? H - 36 : H - 8;
     legendItems.forEach(([k, label]) => {
       if (lx + legendW(label) - 18 > W - R) { lx = L; ly += 30; }
-      const sw = k === 'band' ? `<rect x="${lx}" y="${ly - 10}" width="26" height="10" fill="#e3f1f2"/>` : k === 'pt' ? `<circle cx="${lx + 13}" cy="${ly - 5}" r="4.5" fill="#0a6e77"/>` : `<line x1="${lx}" x2="${lx + 26}" y1="${ly - 5}" y2="${ly - 5}" stroke="${{ mean: '#01909d', sd2: '#9aa5ab', un: '#9aa5ab', tr: '#0a6e77' }[k]}" stroke-width="${k === 'tr' ? 3 : 2.2}"${k === 'sd2' || k === 'un' ? ' stroke-dasharray="6 4"' : ''}/>`;
+      const sw = k === 'band' ? `<rect x="${lx}" y="${ly - 10}" width="26" height="10" fill="#e3f1f2"/>` : k === 'pt' ? `<circle cx="${lx + 13}" cy="${ly - 5}" r="4.5" fill="#0a6e77"/>` : `<line x1="${lx}" x2="${lx + 26}" y1="${ly - 5}" y2="${ly - 5}" stroke="${{ mean: '#01909d', sd2: '#9aa5ab', un: '#9aa5ab', tr: '#0a6e77', one: '#3fb0ba' }[k]}" stroke-width="${k === 'tr' ? 3 : k === 'one' ? 2.6 : 2.2}"${k === 'sd2' || k === 'un' ? ' stroke-dasharray="6 4"' : ''}/>`;
       s += sw + `<text x="${lx + 32}" y="${ly}" fill="#233334" font-size="19">${label}</text>`;
       lx += legendW(label);
     });
@@ -1435,6 +1461,66 @@ const GH = (() => {
   const labLabel = l => LAB_NAME[l] ? `${LAB_NAME[l][0]}<small>${LAB_NAME[l][1]}</small>` : esc(l);
   const BD_NAME = { '年齢別の期待効果': '年齢から見込める分', '骨年齢による調整': '骨の年齢による分', '思春期による調整': '思春期の進み具合による分', '成長の残り期間による調整': '残りの成長期間による分', '最低見込み（2cm）への調整': '最低見込み（2cm）にそろえた分' };
 
+  const sg = x => (x >= 0 ? '+' : '') + f1(x);
+  // ③：3つの予測の幅を同じ目盛りに並べる（2年続けると幅そのものが上に移ることを見せる）
+  function rangeChart(items) {
+    const W = 720, L = 118, R = 150, rowH = 34, T = 8, H = T + items.length * rowH + 30;
+    const lows = items.map(it => Number(it[3].split('〜')[0])), highs = items.map(it => Number(it[3].split('〜')[1]));
+    const a = Math.floor(Math.min(...lows) - 0.5), b = Math.ceil(Math.max(...highs) + 0.5);
+    const X = v => L + (v - a) / (b - a) * (W - L - R);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="予測の幅の比べ">`;
+    const step = b - a > 14 ? 4 : 2;
+    for (let v = Math.ceil(a / step) * step; v <= b; v += step) s += `<line x1="${X(v)}" x2="${X(v)}" y1="${T}" y2="${T + items.length * rowH}" stroke="#e3eceb" stroke-width="1.2"/><text x="${X(v)}" y="${H - 8}" text-anchor="middle" fill="#4f5f60" font-size="15">${v}</text>`;
+    items.forEach(([label, color, mid, rg], i) => {
+      const y = T + i * rowH + rowH / 2, lo = lows[i], hi = highs[i];
+      s += `<text x="${L - 12}" y="${y + 6}" text-anchor="end" fill="#233334" font-size="16" font-weight="700">${label}</text>`;
+      s += `<rect x="${X(lo)}" y="${y - 8}" width="${Math.max(X(hi) - X(lo), 4)}" height="16" rx="8" fill="${color}" opacity="0.9"/>`;
+      s += `<circle cx="${X(mid)}" cy="${y}" r="5" fill="#fff" stroke="${color}" stroke-width="2.5"/>`;
+      s += `<text x="${X(hi) + 10}" y="${y + 6}" fill="#233334" font-size="15">${rg}cm</text>`;
+    });
+    return s + '</svg>';
+  }
+  function coursesChart(cur, rows, showOne) {
+    const W = 520, H = 306, L = 50, R = 76, T = 20, B = 78;
+    const labels = ['現在'].concat(rows.map(o => o.label));
+    const un = [cur].concat(rows.map(o => o.untreated)), one = [cur].concat(rows.map(o => o.one)), two = [cur].concat(rows.map(o => o.two));
+    const n = labels.length - 1, adult = labels[n] === '大人';
+    const units = labels.map((_, i) => i + (adult && i === n ? 0.5 : 0)), umax = units[n];
+    const span0 = Math.max(...two) - Math.min(...un), step = span0 > 30 ? 10 : span0 > 14 ? 5 : 2;
+    const lo = Math.floor((Math.min(...un) - 1) / step) * step, hi = Math.ceil((Math.max(...two) + 1) / step) * step;
+    const X = i => L + units[i] * (W - L - R) / umax, Y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="これからの見通し">`;
+    if (adult) s += `<rect x="${X(n) - 0.32 * (W - L - R) / umax}" y="${T}" width="${0.64 * (W - L - R) / umax}" height="${H - T - B}" fill="#e8f4f5"/>`;
+    for (let v = lo; v <= hi; v += step) s += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#e3eceb" stroke-width="1.2"/><text x="${L - 7}" y="${Y(v) + 6}" text-anchor="end" fill="#4f5f60" font-size="18">${v}</text>`;
+    const m = adult ? n - 1 : n;
+    const pts = (a, from, to) => a.slice(from, to + 1).map((v, k) => `${X(from + k).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+    s += `<polygon points="${pts(two, 0, m)} ${two.slice(0, m + 1).map((_, k) => `${X(m - k).toFixed(1)},${Y(un[m - k]).toFixed(1)}`).join(' ')}" fill="#e8f4f5" opacity="0.9"/>`;
+    const line = (a, color, w, dash) => {
+      let t = `<polyline points="${pts(a, 0, m)}" fill="none" stroke="${color}" stroke-width="${w}"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`;
+      if (adult) t += `<polyline points="${pts(a, m, n)}" fill="none" stroke="${color}" stroke-width="${w - 0.4}" stroke-dasharray="1.5 5" stroke-linecap="round"/>`;
+      return t;
+    };
+    s += line(un, '#9aa5ab', 2.3, '7 4');
+    if (showOne) s += line(one, '#3fb0ba', 2.6);
+    s += line(two, '#0a6e77', 3);
+    un.forEach((v, i) => { if (i) s += `<circle cx="${X(i)}" cy="${Y(v)}" r="4.5" fill="#9aa5ab"/>`; });
+    if (showOne) one.forEach((v, i) => { if (i) s += `<circle cx="${X(i)}" cy="${Y(v)}" r="4.5" fill="#3fb0ba"/>`; });
+    two.forEach((v, i) => { if (i) s += `<circle cx="${X(i)}" cy="${Y(v)}" r="5" fill="#0a6e77"/>`; });
+    s += `<circle cx="${X(0)}" cy="${Y(cur)}" r="8" fill="#fff" stroke="#0a6e77" stroke-width="2.6"/>`;
+    // 右端の数字：上から2年・1年・治療なし。近いときは下にずらす
+    let yy = Y(two[n]) + 6;
+    s += `<text x="${X(n) + 10}" y="${yy}" fill="#0a6e77" font-size="18" font-weight="700">${f1(two[n])}</text>`;
+    if (showOne) { yy = Math.max(Y(one[n]) + 6, yy + 26); s += `<text x="${X(n) + 10}" y="${yy}" fill="#2a8f98" font-size="18" font-weight="700">${f1(one[n])}</text>`; }
+    yy = Math.max(Y(un[n]) + 6, yy + 26);
+    s += `<text x="${X(n) + 10}" y="${yy}" fill="#4f5f60" font-size="18" font-weight="700">${f1(un[n])}</text>`;
+    labels.forEach((lb, i) => { const on = adult && i === n; s += `<text x="${X(i)}" y="${H - B + 32}" text-anchor="middle" fill="${on ? '#0a6e77' : '#4f5f60'}" font-size="18"${on ? ' font-weight="700"' : ''}>${lb}</text>`; });
+    let lx = L;
+    const leg = (color, w, dash, label) => { const t = `<line x1="${lx}" x2="${lx + 24}" y1="${H - 12}" y2="${H - 12}" stroke="${color}" stroke-width="${w}"${dash ? ` stroke-dasharray="${dash}"` : ''}/><text x="${lx + 30}" y="${H - 7}" fill="#233334" font-size="17">${label}</text>`; lx += 30 + [...label].length * 17 + 22; return t; };
+    s += showOne ? leg('#0a6e77', 2.8, '', '2年治療') + leg('#3fb0ba', 2.6, '', '1年治療') : leg('#0a6e77', 2.8, '', '治療をした場合');
+    s += leg('#9aa5ab', 2.2, '7 4', '治療しない');
+    return s + '</svg>';
+  }
+
   function update() {
     const paper = $('paper'), alertsBox = $('alerts');
     const checks = currentChecks();
@@ -1484,7 +1570,9 @@ const GH = (() => {
           <li><span class="k">今の身長</span><span><b>${f1(height)}</b>cm　<span class="ib">${rankText(r.sds)}</span><span class="sub">${esc(plain(r.sdsDescription))}</span></span></li>
           <li><span class="k">治療をしない場合</span><span>大人の身長は <span class="ib">約<b>${f1(r.untreated)}</b>cm の見込みです</span></span></li>
           ${r.effect > 0.05
-            ? `<li><span class="k">成長ホルモン治療を続けた場合</span><span><span class="ib">約<b>${f1(r.treated)}</b>cm（<b>${r.effectText}</b>cm）</span><span class="ib">の見込みです</span></span></li>`
+            ? (r.courses.oneEqualsTwo
+              ? `<li><span class="k">成長ホルモン治療をした場合</span><span><span class="ib">約<b>${f1(r.treated)}</b>cm（<b>${r.effectText}</b>cm）</span><span class="ib">の見込みです</span></span></li>`
+              : `<li><span class="k">成長ホルモン治療をした場合</span><span><span class="ib">1年で 約<b>${f1(r.courses.final1)}</b>cm（${sg(r.courses.gain1)}cm）</span>　<span class="ib">2年で 約<b>${f1(r.treated)}</b>cm（${r.effectText}cm）</span></span></li>`)
             : `<li><span class="k">成長ホルモン治療をした場合</span><span>治療による上乗せは見込んでいません（理由は2枚目の③）</span></li>`}
         </ul>
       </section>
@@ -1522,11 +1610,19 @@ const GH = (() => {
 
       <section class="blk">
         <div class="sh"><div class="sh-title"><span class="num">3</span>成長ホルモン治療をした場合の予測</div></div>
-        <div class="pred">
-          <div class="pu"><div class="card-label">治療をしない場合の<br>大人の身長</div><div class="p-value grey">${f1(r.untreated)}<span class="unit">cm</span></div><div class="card-sub">予測の幅 ${r.untreatedRange}cm</div></div>
-          <div class="pe"><div class="card-label">治療で見込める<br>上乗せ</div><div class="p-value bright">${r.effectText}<span class="unit">cm</span></div>${r.ghVariance ? `<div class="card-sub">±${r.ghVariance}cmほど前後します</div>` : ''}</div>
-          <div class="pt"><div class="card-label">成長ホルモン治療をした場合の<br>大人の身長</div><div class="p-value dark">${f1(r.treated)}<span class="unit">cm</span></div><div class="card-sub">予測の幅 ${r.treatedRange}cm</div></div>
-        </div>
+        ${(() => {
+          const showOne = r.effect > 0.05 && !r.courses.oneEqualsTwo;
+          const pu = `<div class="pu"><div class="card-label">治療をしない場合の<br>大人の身長</div><div class="p-value grey">${f1(r.untreated)}<span class="unit">cm</span></div><div class="card-sub">予測の幅 ${r.untreatedRange}cm</div></div>`;
+          if (r.effect <= 0.05) return `<div class="pred two">${pu}<div class="pt"><div class="card-label">成長ホルモン治療をした場合</div><div class="p-value mid grey">上乗せは見込んでいません</div><div class="card-sub">理由は下の「この予測のポイント」をご覧ください</div></div></div>`;
+          if (!showOne) return `<div class="pred two">${pu}<div class="pt"><div class="card-label">成長ホルモン治療をした場合の<br>大人の身長</div><div class="p-value dark">${f1(r.treated)}<span class="unit">cm</span></div><div class="card-sub"><b>上乗せ ${r.effectText}cm</b><br>予測の幅 ${r.treatedRange}cm</div></div></div>`;
+          const pu2 = `<div class="pu"><div class="card-label">治療をしない場合の<br>大人の身長</div><div class="p-value grey">${f1(r.untreated)}<span class="unit">cm</span></div></div>`;
+          return `<div class="pred">${pu2}
+            <div class="pe"><div class="card-label">1年治療した場合の<br>大人の身長</div><div class="p-value bright">${f1(r.courses.final1)}<span class="unit">cm</span></div><div class="card-sub"><b>上乗せ ${sg(r.courses.gain1)}cm</b></div></div>
+            <div class="pt"><div class="card-label">2年治療した場合の<br>大人の身長</div><div class="p-value dark">${f1(r.treated)}<span class="unit">cm</span></div><div class="card-sub"><b>上乗せ ${r.effectText}cm</b></div></div>
+          </div>
+          <div class="rec-line"><p><span class="rec">おすすめは1〜2年</span>治療は1年でも効果が出やすく、上乗せの約${Math.round(r.courses.gain1 / r.effect * 10)}割（${sg(r.courses.gain1)}cm）が見込めます。2年続けると上乗せがすべて出て、<b>予測の幅そのものが上に移ります</b>。</p>
+            ${rangeChart([['治療をしない', '#9aa5ab', r.untreated, r.untreatedRange], ['1年治療', '#3fb0ba', r.courses.final1, r.courses.range1], ['2年治療', '#0a6e77', r.treated, r.treatedRange]])}</div>`;
+        })()}
         <div class="points"><div class="pt-t">この予測のポイント</div><ul>${r.parentPoints.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>
       </section>
 
@@ -1542,14 +1638,16 @@ const GH = (() => {
       ${r.outlookYears.length ? `<section class="blk">
         <div class="sh"><div class="sh-title"><span class="num">5</span>これからの見通し</div></div>
         <div class="cards c2 outlook-yrs">
-          <div class="card" style="padding:6px">${outlookYearsChart(height, r.outlookYears)}</div>
+          <div class="card" style="padding:6px">${coursesChart(height, r.courses.rows, r.effect > 0.05 && !r.courses.oneEqualsTwo)}</div>
           <div class="card" style="text-align:left">
-            <table class="outlook-table yrs">
-              <tr><th></th><th><span class="nw">治療を</span><span class="nw">しない場合</span></th><th><span class="nw">治療を</span><span class="nw">続けた場合</span></th><th class="d"><span class="nw">治療による</span><span class="nw">差</span></th></tr>
-              ${r.outlookYears.map(o => { const h = o.label === '大人' ? ' hl' : ''; return `<tr><td class="row-label${h}">${o.label}</td><td class="num grey${h}">${f1(o.untreated)}</td><td class="num dark${h}">${f1(o.treated)}</td><td class="num bright d${h}">${(o.difference >= 0 ? '+' : '') + f1(o.difference)}</td></tr>`; }).join('')}
-            </table>
+            ${(() => {
+              const showOne = r.effect > 0.05 && !r.courses.oneEqualsTwo;
+              const head = `<tr><th></th><th><span class="nw">治療を</span><span class="nw">しない場合</span></th>${showOne ? '<th><span class="nw">1年</span><span class="nw">治療した場合</span></th><th><span class="nw">2年</span><span class="nw">治療した場合</span></th>' : '<th><span class="nw">治療を</span><span class="nw">した場合</span></th>'}</tr>`;
+              const rows = r.courses.rows.map(o => { const h = o.label === '大人' ? ' hl' : ''; return `<tr><td class="row-label${h}">${o.label}</td><td class="num grey${h}">${f1(o.untreated)}</td>${showOne ? `<td class="num bright${h}">${f1(o.one)}<small>${sg(o.one - o.untreated)}</small></td>` : ''}<td class="num dark${h}">${f1(o.two)}<small>${sg(o.two - o.untreated)}</small></td></tr>`; }).join('');
+              return `<table class="outlook-table yrs crs">${head}${rows}</table>`;
+            })()}
             <p class="r-note">${r.outlookYears[r.outlookYears.length - 1].difference > 0.05
-              ? '数字の単位はcmです。成長ホルモン治療を続けると、差は1年目にいちばん大きくつき、そのあとも少しずつ広がります。'
+              ? '数字の単位はcmです。治療をやめても、それまでについた差は大人まで残ると見込んでいます。治療の期間は、1年ごとの診察で伸びを確かめながら、担当医と一緒に決めます。'
               : '数字の単位はcmです。治療による上乗せは見込んでいないため、差は出ません。'}</p>
           </div>
         </div>
