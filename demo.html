@@ -247,6 +247,10 @@ main.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-
 /* charts-clear */
 /* stairs-view */
 /* stairs-up */
+/* check500-fix：2枚目をA4に収める（文字の大きさは保ったまま行間を少し詰める） */
+.points li { font-size: 14px; line-height: 1.6; margin: 2px 0; }
+.paper .st { padding: 5px 12px; }
+.paper .stairs { padding: 6px 14px 8px; }
 .st.s3 { margin-left: 21%; border: 1.5px dashed #0a6e77; border-left: 6px solid #8cc5ca; background: #fff; border-radius: 0 6px 6px 0; display: block; }
 .st.s3 .st-l b { font-size: 16px; color: var(--r-dark); }
 .st.s3 .st-l span { display: block; font-size: 13.5px; color: var(--r-text); }
@@ -1378,7 +1382,7 @@ const GH = (() => {
     const cur = r.history[r.history.length - 1], past = r.history.slice(0, -1);
     const firstAge = Math.min(...r.history.map(p => p.age));
     const x0 = Math.max(0, Math.min(Math.floor(firstAge) - 2, 14)), x1 = 18.2;
-    const W = 1000, L = 84, R = 232, T = 22, H = 380, B = 100;
+    const W = 1000, L = 84, R = 250, T = 22, H = 352, B = 100;
     const xs = []; for (let a = x0; a <= 18.0001; a += 0.25) xs.push(a);
     const lo = xs.map(a => at(a)[0] - 2 * at(a)[1]), hi = xs.map(a => at(a)[0] + 2 * at(a)[1]), mid = xs.map(a => at(a)[0]);
     const oneAt = p => p.untreated + Math.min(p.treated - p.untreated, g1);
@@ -1388,7 +1392,8 @@ const GH = (() => {
     const X = a => L + (a - x0) / (x1 - x0) * (W - L - R), Y = h => T + (y1 - h) / (y1 - y0) * (H - T - B);
     const path = pts => pts.map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1)).join(' ');
     let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="成長曲線と成人身長の予測"><defs><clipPath id="gc-clip"><rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}"/></clipPath></defs>`;
-    const ystep = y1 - y0 > 30 ? 10 : 5;
+    // 目盛りの数字どうしが近づきすぎないよう、間隔が30以上になる刻みを選ぶ（check500-fix）
+    const ystep = [5, 10, 20].find(st => st / (y1 - y0) * (H - T - B) >= 30) || 20;
     for (let h = Math.ceil(y0 / ystep) * ystep; h <= y1; h += ystep) s += `<line x1="${L}" x2="${W - R}" y1="${Y(h)}" y2="${Y(h)}" stroke="#e3eceb" stroke-width="1.4"/>` + (h > y0 ? `<text x="${L - 8}" y="${Y(h) + 6}" text-anchor="end" fill="#4f5f60" font-size="20">${h}</text>` : '');
     const xstep = 18 - x0 > 12 ? 2 : 1;
     for (let a = Math.ceil(x0 / xstep) * xstep; a <= 18; a += xstep) s += `<text x="${X(a)}" y="${H - B + 28}" text-anchor="middle" fill="#4f5f60" font-size="20">${a}</text>`;
@@ -1400,7 +1405,6 @@ const GH = (() => {
     s += `<path d="${path(xs.map((a, i) => [a, lo[i]]))}" fill="none" stroke="#b9c5c7" stroke-width="1.6" stroke-dasharray="6 4"/>`;
     if (r.geneticTarget) s += `<line x1="${L}" x2="${W - R}" y1="${Y(r.geneticTarget)}" y2="${Y(r.geneticTarget)}" stroke="#b8864b" stroke-width="1.7" stroke-dasharray="1.5 4"/>`;
     s += `</g>`;
-    if (r.geneticTarget) s += `<text x="${L + 8}" y="${Y(r.geneticTarget) - 7}" fill="#9a6a32" font-size="18">ご両親から見た目安 ${f1(r.geneticTarget)}cm</text>`;
     // 予測の線（今の年齢から）
     s += `<path d="${path(r.trajectory.map(p => [p.age, p.untreated]))}" fill="none" stroke="${UNT}" stroke-width="2.8" stroke-dasharray="9 6"/>`;
     s += `<path d="${path(r.trajectory.map(p => [p.age, p.treated]))}" fill="none" stroke="${TWO}" stroke-width="3.6"/>`;
@@ -1413,13 +1417,24 @@ const GH = (() => {
     let prevY = -1e9;
     ends.forEach(e => {
       s += `<circle cx="${X(last.age)}" cy="${Y(e.v)}" r="6" fill="${e.d}"/>`;
-      const ty = Math.max(Y(e.v) + 7, prevY + 31); prevY = ty;
-      s += `<text x="${X(last.age) + 14}" y="${ty}" fill="${e.c}" font-size="20" font-weight="700">${e.t}</text>`;
+      const ty = Math.max(Y(e.v) + 7, prevY + 29); prevY = ty;
+      s += `<text x="${X(last.age) + 14}" y="${ty}" fill="${e.c}" font-size="19" font-weight="700">${e.t}</text>`;
     });
     past.forEach(p => { s += `<circle cx="${X(p.age)}" cy="${Y(p.height)}" r="5" fill="#0a6e77" opacity="0.85"/>`; });
     s += `<circle cx="${X(cur.age)}" cy="${Y(cur.height)}" r="8.5" fill="#fff" stroke="#0a6e77" stroke-width="3"/>`;
-    { const nearLeft = X(cur.age) < L + 170;
-      s += `<text x="${X(cur.age) + (nearLeft ? 12 : -14)}" y="${Y(cur.height) - 14}"${nearLeft ? '' : ' text-anchor="end"'} fill="#0a6e77" font-size="22" font-weight="700">現在 ${f1(cur.height)}cm</text>`; }
+    { // 「現在」は左上（左端に近いときは右上）。「ご両親から見た目安」の文字は「現在」と重ならない場所（左上→右上→左下→右下）に置く（check500-fix）
+      const tw = (t, cj, as) => [...t].reduce((w, c) => w + (c.charCodeAt(0) < 256 ? as : cj), 0);
+      const label = `現在 ${f1(cur.height)}cm`, lw = tw(label, 22, 12);
+      const nearLeft = X(cur.age) < L + 170;
+      const lx = nearLeft ? X(cur.age) + 12 : X(cur.age) - 14 - lw, ly = Y(cur.height) - 14;
+      s += `<text x="${lx}" y="${ly}" fill="#0a6e77" font-size="22" font-weight="700">${label}</text>`;
+      if (r.geneticTarget) {
+        const gl = `ご両親から見た目安 ${f1(r.geneticTarget)}cm`, gw = tw(gl, 18, 10), gy = Y(r.geneticTarget);
+        const cands = [[L + 8, gy - 7], [W - R - 8 - gw, gy - 7], [L + 8, gy + 22], [W - R - 8 - gw, gy + 22]];
+        const hit = ([x, y]) => x < lx + lw + 8 && x + gw > lx - 8 && y - 22 < ly + 8 && y + 10 > ly - 26;
+        const [gx, gyy] = cands.find(c => !hit(c)) || cands[0];
+        s += `<text x="${gx}" y="${gyy}" fill="#9a6a32" font-size="18">${gl}</text>`;
+      } }
     // 凡例（予測の線は右端に名前を書いたので、背景の線だけ）
     let lx = L; const ly = H - 10;
     [['band', '多くの子が入る範囲'], ['sd2', '低身長の目安'], ['mean', '同じ年齢の平均']].concat(past.length ? [['pt', 'これまでの測定']] : []).forEach(([k, label]) => {
