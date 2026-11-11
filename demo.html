@@ -243,6 +243,8 @@ main.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-
 /* parent-friendly-6 */
 /* course-1-2 */
 /* course-1-2b */
+.rc-narrow { display: none; }
+@media (max-width: 560px) { .rc-wide { display: none !important; } .rc-narrow { display: block !important; } }
 .paper .summary li { padding: 5px 0; }
 .rec-line p { margin: 0 0 6px; }
 .rec-line svg { display: block; width: 100%; height: auto; }
@@ -1465,7 +1467,23 @@ const GH = (() => {
 
   const sg = x => (x >= 0 ? '+' : '') + f1(x);
   // ③：3つの予測の幅を同じ目盛りに並べる（2年続けると幅そのものが上に移ることを見せる）
-  function rangeChart(items) {
+  function rangeChart(items) { return rangeChartW(items).replace('<svg ', '<svg class="rc-wide" ') + rangeChartN(items).replace('<svg ', '<svg class="rc-narrow" '); }
+  function rangeChartN(items) {
+    const W = 400, L = 8, R = 8, rowH = 50, T = 4, H = T + items.length * rowH + 24;
+    const lows = items.map(it => Number(it[3].split('〜')[0])), highs = items.map(it => Number(it[3].split('〜')[1]));
+    const a = Math.floor(Math.min(...lows) - 0.5), b = Math.ceil(Math.max(...highs) + 0.5);
+    const X = v => L + (v - a) / (b - a) * (W - L - R);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="予測の幅の比べ">`;
+    const step = b - a > 14 ? 4 : 2;
+    for (let v = Math.ceil(a / step) * step; v <= b; v += step) s += `<line x1="${X(v)}" x2="${X(v)}" y1="${T}" y2="${T + items.length * rowH}" stroke="#e3eceb" stroke-width="1.2"/><text x="${X(v)}" y="${H - 6}" text-anchor="middle" fill="#4f5f60" font-size="15">${v}</text>`;
+    items.forEach(([label, color, mid, rg], i) => {
+      const y0 = T + i * rowH, lo = lows[i], hi = highs[i];
+      s += `<text x="${L}" y="${y0 + 18}" fill="#233334" font-size="16" font-weight="700">${label}</text><text x="${W - R}" y="${y0 + 18}" text-anchor="end" fill="#233334" font-size="15">${rg}cm</text>`;
+      s += `<rect x="${X(lo)}" y="${y0 + 26}" width="${Math.max(X(hi) - X(lo), 4)}" height="16" rx="8" fill="${color}" opacity="0.9"/><circle cx="${X(mid)}" cy="${y0 + 34}" r="5" fill="#fff" stroke="${color}" stroke-width="2.5"/>`;
+    });
+    return s + '</svg>';
+  }
+  function rangeChartW(items) {
     const W = 720, L = 118, R = 150, rowH = 29, T = 6, H = T + items.length * rowH + 26;
     const lows = items.map(it => Number(it[3].split('〜')[0])), highs = items.map(it => Number(it[3].split('〜')[1]));
     const a = Math.floor(Math.min(...lows) - 0.5), b = Math.ceil(Math.max(...highs) + 0.5);
