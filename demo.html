@@ -245,6 +245,37 @@ main.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-
 /* course-1-2b */
 /* upper-end */
 /* charts-clear */
+/* stairs-view */
+/* stairs-up */
+.st.s3 { margin-left: 21%; border: 1.5px dashed #0a6e77; border-left: 6px solid #8cc5ca; background: #fff; border-radius: 0 6px 6px 0; display: block; }
+.st.s3 .st-l b { font-size: 16px; color: var(--r-dark); }
+.st.s3 .st-l span { display: block; font-size: 13.5px; color: var(--r-text); }
+@media (max-width: 560px) { .st.s3 { margin-left: 12%; } }
+.up-box { margin-top: 10px; border: 1.5px solid var(--r-accent); border-radius: 9px; padding: 10px 16px; background: #fff; }
+.up-box .up-t { font-weight: 700; font-size: 16px; color: var(--r-dark); margin: 0 0 4px !important; }
+.up-box p { font-size: 14px; line-height: 1.75; margin: 0; }
+.rec-line svg.rc-narrow { display: none; }
+@media (max-width: 560px) { .rec-line svg.rc-narrow { display: block; } .rec-line svg.rc-wide { display: none; } }
+.stairs { border: 1px solid var(--r-line); border-radius: 9px; padding: 8px 14px 10px; }
+.st-h { font-size: 13.5px; font-weight: 700; color: var(--r-sub); }
+.st { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 12px; border-left: 6px solid #c9d3d5; margin-top: 6px; background: #f6f8f8; border-radius: 0 6px 6px 0; }
+.st.s1 { margin-left: 7%; border-left-color: #2f7fd0; background: #eef5fc; }
+.st.s2 { margin-left: 14%; border-left-color: #0a6e77; background: var(--r-tint); }
+.st-l { font-size: 15px; line-height: 1.5; }
+.st-l b { font-size: 18px; } .st-l b.one { color: #2366ad; } .st-l b.dark { color: var(--r-dark); }
+.st-b { display: inline-block; background: #2f7fd0; color: #fff; font-weight: 700; font-size: 12.5px; padding: 1px 9px; border-radius: 4px; margin-right: 8px; vertical-align: 1px; }
+.st-v { font-size: 28px; font-weight: 700; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.st-v .unit { font-size: 14px; font-weight: 400; margin-left: 2px; }
+.st-v small { display: block; font-size: 13px; font-weight: 700; }
+.st-v.grey { color: var(--r-sub2); } .st-v.one { color: #2366ad; } .st-v.dark { color: var(--r-dark); }
+@media (max-width: 560px) { .st.s1 { margin-left: 4%; } .st.s2 { margin-left: 8%; } .st-v { font-size: 22px; } .st { flex-wrap: wrap; } }
+.cards.c2.check { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+@media (max-width: 560px) { .cards.c2.check { grid-template-columns: minmax(0, 1fr); } }
+.check-t { font-weight: 700; font-size: 15px; margin: 4px 0 2px !important; }
+.check-v { font-size: 30px; font-weight: 700; color: var(--r-dark); font-variant-numeric: tabular-nums; }
+.check-v .unit { font-size: 15px; font-weight: 400; margin-left: 2px; }
+.check-v small { font-size: 15px; font-weight: 700; margin-left: 6px; }
+.check-s { font-size: 14px; color: var(--r-sub); margin-top: 6px !important; }
 .p-value.one { color: #2366ad; }
 .outlook-table .one, .outlook-table.crs td.num.one small { color: #2366ad; }
 .outlook-table.crs td.num.dark small { color: var(--r-dark); }
@@ -797,8 +828,9 @@ const GH = (() => {
     return [total, reason, limited];
   }
   function yearDistribution(total, remaining) {
-    // 2026-11-11 先生判断：治療は1〜2年。期待効果は「2年治療した場合」の値で、2年で出し切る（1年目60%・2年目40%）
-    const s = [0.60, 0.40];
+    // 2026-11-11 先生判断：治療は1〜2年。期待効果は「2年治療した場合」の値で、2年で出し切る。
+    //   1年目が2/3、2年目はその半分の1/3（身長先生の「2年目は1年目の半分」・stairs-2-1）
+    const s = [2.0 / 3.0, 1.0 / 3.0];
     return s.map(x => total * x);
   }
   function cumulative(dist, years) {
@@ -1346,7 +1378,7 @@ const GH = (() => {
     const cur = r.history[r.history.length - 1], past = r.history.slice(0, -1);
     const firstAge = Math.min(...r.history.map(p => p.age));
     const x0 = Math.max(0, Math.min(Math.floor(firstAge) - 2, 14)), x1 = 18.2;
-    const W = 1000, L = 84, R = 232, T = 22, H = 400, B = 100;
+    const W = 1000, L = 84, R = 232, T = 22, H = 380, B = 100;
     const xs = []; for (let a = x0; a <= 18.0001; a += 0.25) xs.push(a);
     const lo = xs.map(a => at(a)[0] - 2 * at(a)[1]), hi = xs.map(a => at(a)[0] + 2 * at(a)[1]), mid = xs.map(a => at(a)[0]);
     const oneAt = p => p.untreated + Math.min(p.treated - p.untreated, g1);
@@ -1371,14 +1403,12 @@ const GH = (() => {
     if (r.geneticTarget) s += `<text x="${L + 8}" y="${Y(r.geneticTarget) - 7}" fill="#9a6a32" font-size="18">ご両親から見た目安 ${f1(r.geneticTarget)}cm</text>`;
     // 予測の線（今の年齢から）
     s += `<path d="${path(r.trajectory.map(p => [p.age, p.untreated]))}" fill="none" stroke="${UNT}" stroke-width="2.8" stroke-dasharray="9 6"/>`;
-    if (showOne) s += `<path d="${path(r.trajectory.map(p => [p.age, oneAt(p)]))}" fill="none" stroke="${ONE}" stroke-width="3"/>`;
     s += `<path d="${path(r.trajectory.map(p => [p.age, p.treated]))}" fill="none" stroke="${TWO}" stroke-width="3.6"/>`;
     const last = r.trajectory[r.trajectory.length - 1];
     // 右端に名前と数字（重ならないよう縦にずらす）
     const ends = r.effect <= 0.05
       ? [{ v: last.untreated, c: '#4f5f60', d: UNT, t: `予測 ${f1(r.untreated)}cm` }]
-      : [{ v: last.treated, c: TWO, d: TWO, t: `${showOne ? '2年治療' : '治療した場合'} ${f1(r.treated)}cm` }]
-        .concat(showOne ? [{ v: oneAt(last), c: '#2366ad', d: ONE, t: `1年治療 ${f1(r.courses.final1)}cm` }] : [])
+      : [{ v: last.treated, c: TWO, d: TWO, t: `${showOne ? '2年目まで' : '治療した場合'} ${f1(r.treated)}cm` }]
         .concat([{ v: last.untreated, c: '#4f5f60', d: UNT, t: `治療しない ${f1(r.untreated)}cm` }]);
     let prevY = -1e9;
     ends.forEach(e => {
@@ -1519,6 +1549,20 @@ const GH = (() => {
     });
     return s + '</svg>';
   }
+  function checkChart(gu, gt) {
+    // stairs-view：1年間の伸びの目安（治療をしない／治療をした場合）
+    const W = 520, H = 170, L = 150, R = 96, T = 44;
+    const mx = Math.max(gt, gu, 1);
+    const X = v => L + v / mx * (W - L - R);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="1年間の伸びの目安"><text x="8" y="26" fill="#233334" font-size="18" font-weight="700">1年間の伸びの目安</text>`;
+    [['治療をしない', gu, '#9aa5ab', '#4f5f60'], ['治療をした場合', gt, '#0a6e77', '#0a6e77']].forEach(([lab, v, c, tc], i) => {
+      const y = T + i * 58;
+      s += `<text x="${L - 12}" y="${y + 26}" text-anchor="end" fill="#233334" font-size="18" font-weight="700">${lab}</text>`;
+      s += `<rect x="${L}" y="${y + 6}" width="${Math.max(X(v) - L, 3)}" height="32" rx="4" fill="${c}"/>`;
+      s += `<text x="${X(v) + 10}" y="${y + 29}" fill="${tc}" font-size="20" font-weight="700">${f1(v)}cm</text>`;
+    });
+    return s + '</svg>';
+  }
   function gainChart(rows, showOne, effect) {
     // charts-clear：治療しない場合との差（cm）を棒で。1年でやめても差は残る・2年で全部、をひと目で
     const W = 520, H = 320, L = 44, R = 12, T = 50, B = 76, ONE = '#2f7fd0', TWO = '#0a6e77';
@@ -1611,6 +1655,7 @@ const GH = (() => {
     try { r = GH.precise(inp); } catch (e) { paper.innerHTML = `<article class="paper"><p class="a-err">計算できませんでした（${esc(e.message)}）。入力を見直してください。</p></article>`; return; }
     const weight = num('weight'), igf1 = num('igf1'), father = num('father'), mother = num('mother');
     const v = r.velocity, warnV = v.level === 'low' || v.level === 'very_low';
+    const hasCheck = r.effect > 0.05 && r.courses.rows.some(o => o.label === '1年後');  // ⑤「1年後の目安」を出すか
     const d = date.split('-'), mdate = `${d[0]}年${d[1]}月${d[2]}日`, t = TODAY.split('-'), rdate = `${t[0]}年${t[1]}月${t[2]}日`;
 
     // 管理画面の注意事項（スタッフ向け）
@@ -1682,13 +1727,17 @@ const GH = (() => {
           if (r.effect <= 0.05) return `<div class="pred two">${pu}<div class="pt"><div class="card-label">成長ホルモン治療をした場合</div><div class="p-value mid grey">上乗せは見込んでいません</div><div class="card-sub">理由は下の「この予測のポイント」をご覧ください</div></div></div>`;
           if (!showOne) return `<div class="pred two">${pu}<div class="pt"><div class="card-label">成長ホルモン治療をした場合の<br>大人の身長</div><div class="p-value dark">${f1(r.treated)}<span class="unit">cm</span></div><div class="card-sub"><b>上乗せ ${r.effectText}cm</b><br>予測の幅 ${r.treatedRange}cm${r.effect >= 2.0 ? `<span class="up">うまくいけば <b>${upEnd(r.treatedRange)}</b>cm まで</span>` : ''}</div></div></div>`;
           const big = r.effect >= 2.0;
-          const pu2 = big ? `<div class="pu"><div class="card-label">治療をしない場合の<br>大人の身長</div><div class="p-value grey">${f1(r.untreated)}<span class="unit">cm</span></div></div>` : pu;
-          return `<div class="pred">${pu2}
-            <div class="pe"><div class="card-label">1年治療した場合の<br>大人の身長</div><div class="p-value one">${f1(r.courses.final1)}<span class="unit">cm</span></div><div class="card-sub"><b>上乗せ ${sg(r.courses.gain1)}cm</b>${big ? `<span class="up">うまくいけば <b>${upEnd(r.courses.range1)}</b>cm まで</span>` : `<br>予測の幅 ${r.courses.range1}cm`}</div></div>
-            <div class="pt"><div class="card-label">2年治療した場合の<br>大人の身長</div><div class="p-value dark">${f1(r.treated)}<span class="unit">cm</span></div><div class="card-sub"><b>上乗せ ${r.effectText}cm</b>${big ? `<span class="up">うまくいけば <b>${upEnd(r.treatedRange)}</b>cm まで</span>` : `<br>予測の幅 ${r.treatedRange}cm`}</div></div>
+          const g2 = Math.round((r.effect - r.courses.gain1) * 10) / 10;
+          // stairs-view：まず1年、2年目は上乗せ（1年と2年を「選ぶ」形にしない）
+          return `<div class="stairs">
+            <div class="st-h">大人の身長の見込み</div>
+            <div class="st s0"><div class="st-l">治療をしない場合</div><div class="st-v grey">${f1(r.untreated)}<span class="unit">cm</span></div></div>
+            <div class="st s1"><div class="st-l">${big ? '<span class="st-b">まず1年</span>' : ''}1年目の上乗せ <b class="one">${sg(r.courses.gain1)}cm</b></div><div class="st-v one">${f1(r.courses.final1)}<span class="unit">cm</span>${big ? `<small>うまくいけば ${upEnd(r.courses.range1)}cm まで</small>` : ''}</div></div>
+            <div class="st s2"><div class="st-l">2年目も続けると さらに <b class="dark">${sg(g2)}cm</b></div><div class="st-v dark">${f1(r.treated)}<span class="unit">cm</span>${big ? `<small>うまくいけば ${upEnd(r.treatedRange)}cm まで</small>` : ''}</div></div>
+            ${big ? `<div class="st s3"><div class="st-l"><b>よく効く子は、さらに上も</b><span>1年目によく反応した子は、2年目以降も伸びが続き、「うまくいけば」の数字を超えることもあります。1年ごとの診察で確かめながら進めます。</span></div></div>` : ''}
           </div>${big ? `
-          <div class="rec-line"><p><span class="rec">おすすめは1〜2年</span>治療は1年でも効果が出やすく、上乗せの約${Math.round(r.courses.gain1 / r.effect * 10)}割（${sg(r.courses.gain1)}cm）が見込めます。2年続けると上乗せがすべて出て、<b>予測の幅そのものが上に移ります</b>。</p>
-            ${rangeChart([['治療をしない', '#9aa5ab', r.untreated, r.untreatedRange], ['1年治療', '#2f7fd0', r.courses.final1, r.courses.range1], ['2年治療', '#0a6e77', r.treated, r.treatedRange]])}</div>` : ''}`;
+          <div class="rec-line"><p><span class="rec">おすすめは、まず1年</span>2年目は、1年目の伸び方を見て一緒に決めます${hasCheck ? '（5「1年後の目安」）' : ''}。治療をやめても、それまでについた差は大人まで残ります。</p>
+            </div>` : ''}`;
         })()}
         <div class="points"><div class="pt-t">この予測のポイント</div><ul>${r.parentPoints.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>
       </section>
@@ -1702,26 +1751,24 @@ const GH = (() => {
       <article class="paper">
       ${head}
 
-      ${r.outlookYears.length ? `<section class="blk">
-        <div class="sh"><div class="sh-title"><span class="num">5</span>これからの見通し</div></div>
-        <div class="cards c2 outlook-yrs">
-          <div class="card" style="padding:6px">${gainChart(r.courses.rows, r.effect > 0.05 && !r.courses.oneEqualsTwo, r.effect)}</div>
-          <div class="card" style="text-align:left">
-            ${(() => {
-              const showOne = r.effect > 0.05 && !r.courses.oneEqualsTwo;
-              const head = `<tr><th></th><th><span class="nw">治療を</span><span class="nw">しない場合</span></th>${showOne ? '<th><span class="nw">1年</span><span class="nw">治療した場合</span></th><th><span class="nw">2年</span><span class="nw">治療した場合</span></th>' : '<th><span class="nw">治療を</span><span class="nw">した場合</span></th>'}</tr>`;
-              const rows = r.courses.rows.map(o => { const h = o.label === '大人' ? ' hl' : ''; return `<tr><td class="row-label${h}">${o.label}</td><td class="num grey${h}">${f1(o.untreated)}</td>${showOne ? `<td class="num one${h}">${f1(o.one)}<small>${sg(o.one - o.untreated)}</small></td>` : ''}<td class="num dark${h}">${f1(o.two)}<small>${sg(o.two - o.untreated)}</small></td></tr>`; }).join('');
-              return `<table class="outlook-table yrs crs">${head}${rows}</table>`;
-            })()}
-            <p class="r-note">${r.outlookYears[r.outlookYears.length - 1].difference > 0.05
-              ? '数字の単位はcmです。治療をやめても、それまでについた差は大人まで残ると見込んでいます。治療の期間は、1年ごとの診察で伸びを確かめながら、担当医と一緒に決めます。'
-              : '数字の単位はcmです。治療による上乗せは見込んでいないため、差は出ません。'}</p>
+      ${hasCheck ? `<section class="blk">
+        <div class="sh"><div class="sh-title"><span class="num">5</span>1年後の目安</div></div>
+        ${(() => {
+          const row = r.courses.rows.find(o => o.label === '1年後');
+          const gu = Math.round((row.untreated - height) * 10) / 10, gt = Math.round((row.two - height) * 10) / 10;
+          return `<div class="cards c2 check">
+            <div class="card" style="padding:6px">${checkChart(gu, gt)}</div>
+            <div class="card" style="text-align:left"><p class="check-t">治療を始めて1年後の身長の目安</p>
+              <div class="check-v">${f1(row.two)}<span class="unit">cm</span><small>（1年で約${f1(gt)}cm）</small></div>
+              <p class="check-s">治療をしない場合は ${f1(row.untreated)}cm（1年で約${f1(gu)}cm）</p></div>
           </div>
-        </div>
+          <p class="r-note">1年後の診察で、この目安と比べて伸び方を確かめ、2年目を続けるかを一緒に決めます。</p>
+          ${r.effect >= 2.0 ? `<div class="up-box"><p class="up-t">よく効く子は、さらに上をめざせます</p><p>効き方には個人差があります。1年目で2年分の上乗せ（${r.effectText}cm）近くまで伸びる子や、2年目以降も伸びが続いて「うまくいけば」の数字を超える子もいれば、2年かけてじっくり効果が出る子もいます。1年ごとの診察で伸び方を確かめながら、続け方を一緒に決めます。</p></div>` : '<p class="r-note">効き方には個人差があります。1年ごとの診察で伸び方を確かめながら進めます。</p>'}`;
+        })()}
       </section>` : ''}
 
       <section class="blk">
-        <div class="sh"><div class="sh-title"><span class="num">${r.outlookYears.length ? 6 : 5}</span>成長のペース</div></div>
+        <div class="sh"><div class="sh-title"><span class="num">${hasCheck ? 6 : 5}</span>成長のペース</div></div>
         <div class="cards pace">
           <div class="card"><span class="pill${warnV ? ' warn' : ''}">1年間の伸び</span><div class="pace-head${warnV ? ' warn' : (v.available ? '' : ' muted')}">${esc(v.label)}</div><p>${esc(plain(v.description))}</p>${v.sourceNote ? `<p class="source">※${esc(v.sourceNote)}</p>` : ''}</div>
           <div class="card"><span class="pill">思春期の状況</span><div class="pace-head">${GH.TANNER_LABEL[r.stage]}</div><p>${REMAINING[r.stage]}</p></div>
@@ -1735,12 +1782,12 @@ const GH = (() => {
       ${head}
 
       ${r.lifestyle.length ? `<section class="blk">
-        <div class="sh"><div class="sh-title"><span class="num">${r.outlookYears.length ? 7 : 6}</span>毎日の生活でできること</div></div>
+        <div class="sh"><div class="sh-title"><span class="num">${hasCheck ? 7 : 6}</span>毎日の生活でできること</div></div>
         <div class="cards habits">${r.lifestyle.map(a => `<div class="card"><div class="habit-head"><span class="habit-title">${esc(a.title)}</span><span class="habit-current">現在：${esc(a.current)}</span></div><p>${esc(a.comment)}</p></div>`).join('')}</div>
       </section>` : ''}
 
       <section class="blk">
-        <div class="sh"><div class="sh-title"><span class="num">${(r.outlookYears.length ? 7 : 6) + (r.lifestyle.length ? 1 : 0)}</span>今後の流れ</div></div>
+        <div class="sh"><div class="sh-title"><span class="num">${(hasCheck ? 7 : 6) + (r.lifestyle.length ? 1 : 0)}</span>今後の流れ</div></div>
         <div class="steps">
           <div><div class="step-no">ステップ1</div><div class="step-title">結果のご説明</div><span class="badge">オンライン</span><p>本レポートをもとに、担当医が検査結果と成長の見通しをご説明します。</p></div>
           <div><div class="step-no">ステップ2</div><div class="step-title">治療方針のご相談</div><span class="badge">オンライン</span><p>治療が必要かどうか・期間・費用をご説明し、ご納得いただいた場合のみ治療を始めます。</p></div>
