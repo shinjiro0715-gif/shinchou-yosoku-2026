@@ -240,6 +240,11 @@ main.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-
 /* parent-friendly-3 */
 /* parent-friendly-4 */
 /* parent-friendly-5 */
+/* parent-friendly-6 */
+.points { margin-top: 10px; background: var(--r-pale); border-radius: 9px; padding: 10px 16px 8px; }
+.points .pt-t { font-weight: 700; color: var(--r-dark); font-size: 15px; margin-bottom: 2px; }
+.points ul { margin: 0; padding-left: 1.2em; }
+.points li { font-size: 14.5px; line-height: 1.75; margin: 3px 0; }
 .summary .ib { display: inline-block; }
 @media (max-width: 560px) { .paper .summary li { grid-template-columns: minmax(0, 1fr); gap: 0; } }
 .cards.c2.outlook-yrs { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
@@ -958,6 +963,96 @@ const GH = (() => {
   }
 
   // 入力: { sex, birth, date, height, weight, boneAge, checks, menarcheAge, labs:{testosterone,lh,fsh,estradiol,alp}, prev:{date,height}|null, missed, father, mother, igf1 }
+  // ---------- 保護者向けの「この予測のポイント」（2026-11-11 デモ案。表示用。計算は変えない） ----------
+  //   本番と同じ文（notes・算出方法）を、保護者が読んで分かる言葉に置き換える。細かい計算の話（遅れの半分・前回の伸びの反映・採血で思春期を確認）は出さない
+  function parentPoints(o) {
+    const pts = [];
+    const y1 = v => fmt(Math.abs(v), 1);
+    // 1) 背が伸びる期間（体の成熟）
+    if (o.method === 'post_menarche') {
+      pts.push('初経（はじめての生理）があったため、これからの伸びは残り少ないと考えて予測しています。');
+    } else if (o.method === 'bone_age' && o.boneAge != null) {
+      const d = o.boneAge - o.ageByMonth;
+      if (d <= -DESCRIBE_TOL) pts.push(`骨の年齢が実際の年齢より${y1(d)}歳若く、背が伸びる期間がまだ長く残っています。その分、大人の身長を高めに見込んでいます。`);
+      else if (d >= DESCRIBE_TOL) pts.push(`骨の年齢が実際の年齢より${y1(d)}歳進んでいて、背が伸びる期間は早めに終わる見込みです。その分、大人の身長を低めに見込んでいます。`);
+      else pts.push('骨の年齢は実際の年齢とほぼ同じで、年齢どおりのペースで伸びる見込みです。');
+    } else if (o.maturityNote.includes('早く進んで')) {
+      pts.push('思春期の進み具合が年齢より早めで、背が伸びる期間は早めに終わる見込みです。その分、大人の身長を低めに見込んでいます。');
+    } else if (o.maturityNote.includes('ゆっくり進んで')) {
+      pts.push('思春期の進み具合が年齢よりゆっくりで、背が伸びる期間がまだ長く残っています。その分、大人の身長を高めに見込んでいます。');
+    } else {
+      pts.push('体の成長の進み具合は年齢どおりで、年齢どおりのペースで伸びる見込みです。');
+    }
+    // 2) 治療の上乗せの中身（上乗せがあるときだけ）。細かい項目は並べず「年齢の目安＋お子さまに合わせた調整」の1文にする
+    if (o.effect > 0.05) {
+      const b = o.b, base = b.gh_base_effect != null ? b.gh_base_effect : o.effect;
+      const adh = b.adherence_adjustment != null ? b.adherence_adjustment : 0;
+      const adj = pyRound(o.effect - base - adh, 1);
+      let t = `治療の上乗せ ${signed(o.effect)}cm は、この年齢で治療を始めた場合の目安`;
+      if (Math.abs(adj) < 0.05 && adh > -0.05) t += 'です。';
+      else {
+        t += `（+${fmt(base)}cm）`;
+        if (Math.abs(adj) >= 0.05) t += `を、お子さまの成長の進み具合に合わせて調整（${signed(adj)}cm）`;
+        if (adh <= -0.05) t += `${Math.abs(adj) >= 0.05 ? 'し、' : 'から、'}注射を打てない日がある分（${signed(adh)}cm）を差し引いた値です。`;
+        else t += 'した値です。';
+      }
+      pts.push(t);
+    }
+    // 3) 伸びや上乗せを抑えた理由（あるときだけ）
+    for (const n of o.notes) {
+      let m;
+      if (n.startsWith('半年後〜1年後の見通しには')) continue;
+      if (n === PAST_HORIZON_NOTE) { pts.push('18歳を過ぎているため、治療による上乗せは見込んでいません。'); continue; }
+      if (n.includes('上乗せが出きる前に18歳になる')) { pts.push('治療の効果が出きる前に18歳になるため、18歳までに見込める分だけを上乗せにしています。'); continue; }
+      if (n.includes('骨端線が閉じる時期') && n.includes('に達している')) {
+        pts.push(n.includes('上乗せは見込んでいません')
+          ? '骨の伸びる部分（骨端線）が閉じる時期に来ているため、治療による上乗せは見込んでいません。'
+          : '骨の伸びる部分（骨端線）が閉じる時期に来ているため、これからの伸びは1cmほどと見込んでいます。');
+        continue;
+      }
+      if (n.includes('骨端線が閉じる時期') && n.includes('に近い')) {
+        if (n.includes('治療による上乗せ')) pts.push('骨の伸びる部分（骨端線）が閉じる時期に近いため、治療の上乗せは少なめに見込んでいます。');
+        else { m = n.match(/約([\d.]+)cm/); pts.push(`骨の伸びる部分（骨端線）が閉じる時期に近いため、これからの伸びは少なめ${m ? `（約${m[1]}cm）` : ''}に見込んでいます。`); }
+        continue;
+      }
+      if ((m = n.match(/^ALPの値から成長(?:は終わりに近い|の終わりが近づいている)と考えられるため、残りの伸びを([\d.]+)cmまで/))) {
+        pts.push(`骨が伸びる勢い（ALP）から、成長の終わりが近いと考えられるため、これからの伸びを${m[1]}cmまでと見込んでいます。`); continue;
+      }
+      if ((m = n.match(/^ALPの値から、治療による上乗せも([\d.]+)cmまで/))) {
+        pts.push(`骨が伸びる勢い（ALP）から、治療の上乗せも${m[1]}cmまでとしています。`); continue;
+      }
+      if (n.startsWith('初経から約')) {
+        m = n.match(/目安（約([\d.]+)cm）/);
+        pts.push(n.includes('見込んでいません')
+          ? '初経のあとに残る伸びがほぼないため、治療による上乗せは見込んでいません。'
+          : `初経のあとに残る伸びが少ないため、治療の上乗せも${m ? `約${m[1]}cm` : '少なめ'}までとしています。`);
+        continue;
+      }
+      pts.push(n); // 想定していない文はそのまま出す（検品で見つけて言い換えを足す）
+    }
+    const NEAR_G = '骨の伸びる部分（骨端線）が閉じる時期に近いため、治療の上乗せは少なめに見込んでいます。';
+    const iNear = pts.findIndex(t => t.startsWith('骨の伸びる部分（骨端線）が閉じる時期に近いため、これからの伸びは少なめ'));
+    if (iNear >= 0 && pts.includes(NEAR_G)) {
+      const m = pts[iNear].match(/（約([\d.]+)cm）/);
+      pts[iNear] = `骨の伸びる部分（骨端線）が閉じる時期に近いため、これからの伸び${m ? `（約${m[1]}cm）` : ''}も治療の上乗せも少なめに見込んでいます。`;
+      pts.splice(pts.indexOf(NEAR_G), 1);
+    }
+    // 上乗せが四捨五入で0になったのに「少なめ」と言わないように（本番の文は「少なく見込んでいます」のまま）
+    if (o.effect <= 0.05) {
+      for (let i = 0; i < pts.length; i++) {
+        pts[i] = pts[i].replace('治療の上乗せは少なめに見込んでいます。', '治療による上乗せはほぼ見込めません。')
+          .replace('も治療の上乗せも少なめに見込んでいます。', 'は少なめで、治療による上乗せはほぼ見込めません。');
+      }
+    }
+    const AT_1 = '骨の伸びる部分（骨端線）が閉じる時期に来ているため、これからの伸びは1cmほどと見込んでいます。';
+    const AT_G = '骨の伸びる部分（骨端線）が閉じる時期に来ているため、治療による上乗せは見込んでいません。';
+    if (pts.includes(AT_1) && pts.includes(AT_G)) {
+      pts[pts.indexOf(AT_1)] = '骨の伸びる部分（骨端線）が閉じる時期に来ているため、これからの伸びは1cmほどで、治療による上乗せは見込んでいません。';
+      pts.splice(pts.indexOf(AT_G), 1);
+    }
+    return pts;
+  }
+
   function precise(inp) {
     const sex = inp.sex;
     const stds = standards(sex);
@@ -1060,6 +1155,7 @@ const GH = (() => {
       maturityMethod: maturity.method, bioAge: maturity.bio,
       breakdown: items, reason: b.maturity_limit_reason, finalGh: b.final_gh_effect,
       notes: b.notes, alerts, outlook, outlookYears, velocity: velocityEval,
+      parentPoints: parentPoints({ method: reportMaturity.method, boneAge, ageByMonth, maturityNote: describeMaturity(reportMaturity, boneAge != null ? boneAge - ageByMonth : null), effect, b, notes: b.notes }),
       ghVariance: effect > 0 && !['closure', 'alp', 'menarche'].includes(b.maturity_limit_reason) ? fmt(smoothBand(ca)[1]) : null,
       sga: Q ? evaluateSga(Q.weeks, Q.birthHeight, Q.birthWeight, sex) : null,
       lifestyle: lifestyleAdvice(Q),
@@ -1130,6 +1226,7 @@ const GH = (() => {
   return { smoothBand, evaluateSga, lifestyleAdvice, evaluateVelocity, precise, line, lineMessage, parseAge, parseHeight, ageLabel, pyRound, fmt, standards, calculateAge, addDays, TANNER_LABEL, tannerFromChecks };
 })();
 
+// parentPoints-2026-11-11
 
 </script>
 <script>
@@ -1318,6 +1415,8 @@ const GH = (() => {
     .replace(/在胎週数/g, '生まれたときの週数')
     .replace(/（約([\d.]+)cm\/年）/g, '（1年に約$1cm）')
     .replace(/同年齢/g, '同じ年齢')
+    .replace('比較できる過去の測定がないため、成長速度は次回以降の測定で評価します。', '前回の測定がないため、1年間の伸びは次回の測定で確かめます。')
+    .replace('この年齢帯の標準値は設定されていません。', 'この年齢の目安の値はありません。')
     .replace(/半年後〜1年後の見通しには/g, '1年後の見通しには');
   const phi = z => { const t = 1 / (1 + 0.2316419 * Math.abs(z)); const d = 0.3989423 * Math.exp(-z * z / 2); const q = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - q : q; };
   const rankText = z => {
@@ -1328,6 +1427,9 @@ const GH = (() => {
     if (100 - pct < 1) return '背の順で100人中 いちばん後ろくらい';
     return `背の順で100人中 後ろから約${Math.round(100 - pct)}番目`;
   };
+  const plainBone = t => t === '年齢相応' ? '実際の年齢とほぼ同じです'
+    : t.replace(/^年齢より([\d.]+)歳遅れています$/, '実際の年齢より$1歳若い（ゆっくり）です').replace(/^年齢より([\d.]+)歳進んでいます$/, '実際の年齢より$1歳進んでいます');
+  const plainLab = t => ({ '参考値です': 'LHと合わせて見る値です', '参考値です（予測には使っていません）': '今回の予測には使っていない値です' }[t] || t);
   const LAB_NAME = { 'テストステロン': ['男性ホルモン', 'テストステロン'], 'エストラジオール': ['女性ホルモン', 'エストラジオール'], 'LH': ['思春期を始めるホルモン', 'LH'], 'FSH': ['思春期を始めるホルモン', 'FSH'], 'ALP（IFCC法）': ['骨が伸びる勢い', 'ALP（IFCC法）'] };
   const labLabel = l => LAB_NAME[l] ? `${LAB_NAME[l][0]}<small>${LAB_NAME[l][1]}</small>` : esc(l);
   const BD_NAME = { '年齢別の期待効果': '年齢から見込める分', '骨年齢による調整': '骨の年齢による分', '思春期による調整': '思春期の進み具合による分', '成長の残り期間による調整': '残りの成長期間による分', '最低見込み（2cm）への調整': '最低見込み（2cm）にそろえた分' };
@@ -1394,11 +1496,11 @@ const GH = (() => {
           <div class="card tinted"><div class="card-label">同じ年齢の子と比べた位置<small>SD値</small></div><div class="card-value accent">${r.sdsText}<span class="unit">SD</span></div><div class="card-sub">${rankText(r.sds)}</div></div>
         </div>
         <div class="cards small">
-          <div class="card"><div class="card-label">骨の年齢<small>骨年齢（手のレントゲン）</small></div><div class="card-value">${r.boneAgeText ? r.boneAgeText + '<span class="unit">歳</span>' : '<span class="na">未測定</span>'}</div>${r.boneAgeNote ? `<div class="card-sub">${esc(r.boneAgeNote)}</div>` : ''}</div>
+          <div class="card"><div class="card-label">骨の年齢<small>骨年齢（手のレントゲン）</small></div><div class="card-value">${r.boneAgeText ? r.boneAgeText + '<span class="unit">歳</span>' : '<span class="na">未測定</span>'}</div>${r.boneAgeNote ? `<div class="card-sub">${esc(plainBone(r.boneAgeNote))}</div>` : ''}</div>
           <div class="card"><div class="card-label">成長ホルモンの働き<small>IGF-1</small></div><div class="card-value">${igf1 ? fg(igf1) + '<span class="unit">ng/mL</span>' : '<span class="na">未測定</span>'}</div></div>
           <div class="card"><div class="card-label">思春期をゆっくりにするお薬<small>リュープリン</small></div><div class="card-value text">${$('leup').checked ? '使っています' : '使っていません'}</div></div>
         </div>
-        ${r.labCards.length ? `<div class="cards small c4">${r.labCards.map(c => `<div class="card"><div class="card-label">${labLabel(c.label)}</div><div class="card-value">${c.value ? esc(c.value) + (c.unit ? `<span class="unit">${c.unit}</span>` : '') : '<span class="na">未測定</span>'}</div>${c.note ? `<div class="card-sub">${esc(c.note)}</div>` : ''}</div>`).join('')}</div>` : ''}
+        ${r.labCards.length ? `<div class="cards small c4">${r.labCards.map(c => `<div class="card"><div class="card-label">${labLabel(c.label)}</div><div class="card-value">${c.value ? esc(c.value) + (c.unit ? `<span class="unit">${c.unit}</span>` : '') : '<span class="na">未測定</span>'}</div>${c.note ? `<div class="card-sub">${esc(plainLab(c.note))}</div>` : ''}</div>`).join('')}</div>` : ''}
         
       </section>
 
@@ -1424,9 +1526,7 @@ const GH = (() => {
           <div class="pe"><div class="card-label">治療で見込める<br>上乗せ</div><div class="p-value bright">${r.effectText}<span class="unit">cm</span></div>${r.ghVariance ? `<div class="card-sub">±${r.ghVariance}cmほど前後します</div>` : ''}</div>
           <div class="pt"><div class="card-label">成長ホルモン治療をした場合の<br>大人の身長</div><div class="p-value dark">${f1(r.treated)}<span class="unit">cm</span></div><div class="card-sub">予測の幅 ${r.treatedRange}cm</div></div>
         </div>
-        ${r.breakdown.length ? `<div class="bd"><span class="h">上乗せの内訳</span>${r.breakdown.map(b => `<span><span class="l">${esc(BD_NAME[b.label] || b.label)}</span><span class="v">${b.value}cm</span></span>`).join('')}</div>` : ''}
-        <p class="tag-line"><span class="tag">計算のしかた</span>${esc(plain(r.maturityNote + r.notes.join('')))}</p>
-        <p class="r-note">どちらも検査の結果から計算した予測で、目安です。実際の伸びとは差が出ることがあります。</p>
+        <div class="points"><div class="pt-t">この予測のポイント</div><ul>${r.parentPoints.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>
       </section>
 
       <section class="blk">
@@ -1477,7 +1577,7 @@ const GH = (() => {
         <div class="sh"><div class="sh-title"><span class="num">${(r.outlookYears.length ? 7 : 6) + (r.lifestyle.length ? 1 : 0)}</span>今後の流れ</div></div>
         <div class="steps">
           <div><div class="step-no">ステップ1</div><div class="step-title">結果のご説明</div><span class="badge">オンライン</span><p>本レポートをもとに、担当医が検査結果と成長の見通しをご説明します。</p></div>
-          <div><div class="step-no">ステップ2</div><div class="step-title">治療方針のご相談</div><span class="badge">オンライン</span><p>治療の要否・期間・費用をご説明し、ご納得いただいた場合のみ治療を開始します。</p></div>
+          <div><div class="step-no">ステップ2</div><div class="step-title">治療方針のご相談</div><span class="badge">オンライン</span><p>治療が必要かどうか・期間・費用をご説明し、ご納得いただいた場合のみ治療を始めます。</p></div>
           <div><div class="step-no">ステップ3</div><div class="step-title">定期診察・経過フォロー</div><span class="badge">検査施設・オンライン</span><p>定期的な診察と血液検査で、成長の様子と体調を確認しながら進めます。</p></div>
         </div>
       </section>
@@ -1488,9 +1588,9 @@ const GH = (() => {
       </div>
       <div class="about">
         <div class="t">本レポートについて</div>
-        <p>・検査結果をもとにした予測であり、実際の成長とは差が生じる場合があります。</p>
-        <p>・治療効果には個人差があり、記載の数値を保証するものではありません。</p>
-        <p>・治療の要否・効果については、担当医が診察時にご説明いたします。</p>
+        <p>・検査の結果から計算した予測で、実際の成長とは差が出ることがあります。</p>
+        <p>・治療の効果には個人差があり、ここに書いた数字を約束するものではありません。</p>
+        <p>・治療が必要かどうかや効果については、担当医が診察でご説明します。</p>
         <p class="sample">・本レポートはデモです。記載の患者名・数値はすべて架空のものです。</p>
       </div>
       ${foot(4)}
