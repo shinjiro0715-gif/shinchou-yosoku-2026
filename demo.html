@@ -1469,10 +1469,10 @@ const GH = (() => {
   // ③：3つの予測の幅を同じ目盛りに並べる（2年続けると幅そのものが上に移ることを見せる）
   function rangeChart(items) { return rangeChartW(items).replace('<svg ', '<svg class="rc-wide" ') + rangeChartN(items).replace('<svg ', '<svg class="rc-narrow" '); }
   function rangeChartN(items) {
-    const W = 400, L = 8, R = 8, rowH = 50, T = 4, H = T + items.length * rowH + 24;
+    const W = 400, L = 8, R = 8, rowH = 50, T = 4, H = T + items.length * rowH + 24, PAD = 16;
     const lows = items.map(it => Number(it[3].split('〜')[0])), highs = items.map(it => Number(it[3].split('〜')[1]));
     const a = Math.floor(Math.min(...lows) - 0.5), b = Math.ceil(Math.max(...highs) + 0.5);
-    const X = v => L + (v - a) / (b - a) * (W - L - R);
+    const X = v => L + PAD + (v - a) / (b - a) * (W - L - R - 2 * PAD);
     let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="予測の幅の比べ">`;
     const step = b - a > 14 ? 4 : 2;
     for (let v = Math.ceil(a / step) * step; v <= b; v += step) s += `<line x1="${X(v)}" x2="${X(v)}" y1="${T}" y2="${T + items.length * rowH}" stroke="#e3eceb" stroke-width="1.2"/><text x="${X(v)}" y="${H - 6}" text-anchor="middle" fill="#4f5f60" font-size="15">${v}</text>`;
