@@ -238,6 +238,10 @@ main.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-
 .about .t { font-size: 14.5px; } .about p { font-size: 13px; line-height: 1.75; }
 /* parent-friendly-2 */
 /* parent-friendly-3 */
+/* parent-friendly-4 */
+.cards.c2.outlook-yrs { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+@media (max-width: 560px) { .cards.c2.outlook-yrs { grid-template-columns: minmax(0, 1fr); } }
+.habit-current { display: block; margin-top: 1px; }
 .paper .blk { margin-bottom: 14px; }
 .paper .summary { margin-bottom: 14px; }
 .paper .card { padding: 8px 12px; }
@@ -1200,7 +1204,7 @@ const GH = (() => {
     // 凡例は文字の幅を見積もって並べ、入りきらないときは2段にする（右端で切れないように）
     const legendW = t => [...t].reduce((w, c) => w + (c.charCodeAt(0) < 256 ? 10.5 : 19), 0) + 56;
     const legendItems = [['band', '多くの子が入る範囲'], ['sd2', '低身長の目安'], ['un', `治療をしない場合 ${f1(r.untreated)}cm`], ['tr', `成長ホルモン治療をした場合 ${f1(r.treated)}cm`], ['mean', '同じ年齢の平均']].concat(r.history.length > 1 ? [['pt', 'これまでの測定']] : []);
-    const W = 1000, L = 52, R = 24, T = 16;
+    const W = 1000, L = 84, R = 24, T = 16;
     const wrap = legendItems.reduce((w, it) => w + legendW(it[1]), 0) > W - L - R;
     const H = wrap ? 410 : 380, B = wrap ? 124 : 92;
     const stds = r.standards;
@@ -1218,7 +1222,7 @@ const GH = (() => {
     for (let h = Math.ceil(y0 / 25) * 25; h <= y1; h += 25) s += `<line x1="${L}" x2="${W - R}" y1="${Y(h)}" y2="${Y(h)}" stroke="#e3eceb" stroke-width="1.4"/><text x="${L - 8}" y="${Y(h) + 5}" text-anchor="end" fill="#4f5f60" font-size="20">${h}</text>`;
     for (let a = 0; a <= 18; a += 3) s += `<text x="${X(a)}" y="${H - B + 26}" text-anchor="middle" fill="#4f5f60" font-size="20">${a}</text>`;
     s += `<text x="${(L + W - R) / 2}" y="${H - B + 52}" text-anchor="middle" fill="#4f5f60" font-size="19">年齢（歳）</text>`;
-    s += `<text x="14" y="${(T + H - B) / 2}" text-anchor="middle" fill="#4f5f60" font-size="19" transform="rotate(-90 14 ${(T + H - B) / 2})">身長（cm）</text>`;
+    s += `<text x="22" y="${(T + H - B) / 2}" text-anchor="middle" fill="#4f5f60" font-size="19" transform="rotate(-90 22 ${(T + H - B) / 2})">身長（cm）</text>`;
     s += `<path d="${path(xs.map((a, i) => [a, hi[i]]).concat(xs.map((a, i) => [a, lo[i]]).reverse()))} Z" fill="#e3f1f2"/>`;
     s += `<path d="${path(xs.map((a, i) => [a, mid[i]]))}" fill="none" stroke="#01909d" stroke-width="1.8"/>`;
     s += `<path d="${path(xs.map((a, i) => [a, lo[i]]))}" fill="none" stroke="#9aa5ab" stroke-width="1.5" stroke-dasharray="6 4"/>`;
@@ -1309,7 +1313,8 @@ const GH = (() => {
   const plain = t => String(t)
     .replace(/在胎週数/g, '生まれたときの週数')
     .replace(/（約([\d.]+)cm\/年）/g, '（1年に約$1cm）')
-    .replace(/同年齢/g, '同じ年齢');
+    .replace(/同年齢/g, '同じ年齢')
+    .replace(/半年後〜1年後の見通しには/g, '1年後の見通しには');
   const phi = z => { const t = 1 / (1 + 0.2316419 * Math.abs(z)); const d = 0.3989423 * Math.exp(-z * z / 2); const q = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - q : q; };
   const rankText = z => {
     if (z == null || isNaN(z)) return '';
@@ -1431,7 +1436,7 @@ const GH = (() => {
 
       ${r.outlookYears.length ? `<section class="blk">
         <div class="sh"><div class="sh-title"><span class="num">5</span>これからの見通し</div></div>
-        <div class="cards c2">
+        <div class="cards c2 outlook-yrs">
           <div class="card" style="padding:6px">${outlookYearsChart(height, r.outlookYears)}</div>
           <div class="card" style="text-align:left">
             <table class="outlook-table yrs">
