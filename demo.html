@@ -153,6 +153,7 @@ main.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-
 .outlook-table td.num { text-align: center; font-size: 16px; font-weight: 700; }
 .outlook-table .hl { background: var(--r-tint); }
 .outlook-table th.hl { color: var(--r-dark); font-weight: 700; }
+.outlook-table.yrs .row-label { width: 30%; } .outlook-table.yrs td.num { font-size: 15px; } .outlook-table.yrs tr.diff td.num { font-size: 17px; }
 .outlook-table .grey { color: var(--r-sub2); } .outlook-table .dark { color: var(--r-dark); } .outlook-table .bright { color: var(--r-accent); }
 .pace .card { text-align: left; padding: 8px 12px; }
 .pill { display: inline-block; border: 1px solid var(--r-accent); color: var(--r-dark); font-size: 10px; font-weight: 700; padding: 0 8px; border-radius: 3px; }
@@ -958,6 +959,20 @@ const GH = (() => {
       if (uu == null || tt == null) continue;
       outlook.push({ label, untreated: pyRound(uu, 1), treated: pyRound(tt, 1), difference: pyRound(tt - uu, 1) });
     }
+    // 2026-11-11 案：これからの見通し（1年後・2年後・3年後・大人）。治療を続けた場合に差が積み上がる様子を見せる。
+    //   成長が終わった年は出さない。「大人」は③の予測と同じ値
+    const outlookYears = [];
+    const endAge = t.traj.length ? t.traj[t.traj.length - 1].age : ca;
+    for (const [label, y] of [['1年後', 1], ['2年後', 2], ['3年後', 3]]) {
+      if (ca + y >= endAge - 0.05) break;
+      const uu = valueAtAge(t.traj, ca + y, 'untreated'), tt = valueAtAge(t.traj, ca + y, 'treated');
+      if (uu == null || tt == null) break;
+      if (uu >= U - 0.05 && tt >= T - 0.05) break;
+      // 四捨五入のずれで、途中の年の差が③の期待増加を0.1cm上回らないようにする
+      const ru = pyRound(uu, 1), rt = Math.min(pyRound(tt, 1), pyRound(ru + effect, 1));
+      outlookYears.push({ label, untreated: ru, treated: rt, difference: pyRound(rt - ru, 1) });
+    }
+    if (outlookYears.length) outlookYears.push({ label: '大人', untreated: U, treated: T, difference: pyRound(T - U, 1) });
     // 成長のペース（前回の測定が0.5〜1.5年前ならその伸び、なければ3か月以上前を1年あたりに換算）
     let vel = null, velNote = null;
     if (inp.prev && inp.prev.date && inp.prev.height != null && prevYears > 0) {
@@ -980,7 +995,7 @@ const GH = (() => {
       maturityNote: describeMaturity(reportMaturity, boneAge != null ? boneAge - ageByMonth : null),
       maturityMethod: maturity.method, bioAge: maturity.bio,
       breakdown: items, reason: b.maturity_limit_reason, finalGh: b.final_gh_effect,
-      notes: b.notes, alerts, outlook, velocity: velocityEval,
+      notes: b.notes, alerts, outlook, outlookYears, velocity: velocityEval,
       ghVariance: effect > 0 && !['closure', 'alp', 'menarche'].includes(b.maturity_limit_reason) ? fmt(smoothBand(ca)[1]) : null,
       sga: Q ? evaluateSga(Q.weeks, Q.birthHeight, Q.birthWeight, sex) : null,
       lifestyle: lifestyleAdvice(Q),
@@ -1200,6 +1215,38 @@ const GH = (() => {
     return s + '</svg>';
   }
 
+  function outlookYearsChart(cur, rows) {
+    const W = 520, H = 280, L = 46, R = 70, T = 20, B = 58;
+    const labels = ['現在'].concat(rows.map(o => o.label));
+    const un = [cur].concat(rows.map(o => o.untreated)), tr = [cur].concat(rows.map(o => o.treated));
+    const n = labels.length - 1, adult = labels[n] === '大人';
+    const units = labels.map((_, i) => i + (adult && i === n ? 0.5 : 0)), umax = units[n];
+    const span0 = Math.max(...tr) - Math.min(...un), step = span0 > 30 ? 10 : span0 > 14 ? 5 : 2;
+    const lo = Math.floor((Math.min(...un) - 1) / step) * step, hi = Math.ceil((Math.max(...tr) + 1) / step) * step;
+    const X = i => L + units[i] * (W - L - R) / umax, Y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="これからの見通し">`;
+    if (adult) s += `<rect x="${X(n) - 0.32 * (W - L - R) / umax}" y="${T}" width="${0.64 * (W - L - R) / umax}" height="${H - T - B}" fill="#e8f4f5"/>`;
+    for (let v = lo; v <= hi; v += step) s += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#e3eceb" stroke-width="1.2"/><text x="${L - 7}" y="${Y(v) + 5}" text-anchor="end" fill="#6b7a7b" font-size="14">${v}</text>`;
+    const m = adult ? n - 1 : n;
+    const pts = (a, from, to) => a.slice(from, to + 1).map((v, k) => `${X(from + k).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+    s += `<polygon points="${pts(tr, 0, m)} ${tr.slice(0, m + 1).map((_, k) => `${X(m - k).toFixed(1)},${Y(un[m - k]).toFixed(1)}`).join(' ')}" fill="#e8f4f5" opacity="0.9"/>`;
+    s += `<polyline points="${pts(un, 0, m)}" fill="none" stroke="#9aa5ab" stroke-width="2.3" stroke-dasharray="7 4"/>`;
+    s += `<polyline points="${pts(tr, 0, m)}" fill="none" stroke="#01909d" stroke-width="2.8"/>`;
+    if (adult) {
+      s += `<polyline points="${pts(un, m, n)}" fill="none" stroke="#9aa5ab" stroke-width="2" stroke-dasharray="1.5 5" stroke-linecap="round"/>`;
+      s += `<polyline points="${pts(tr, m, n)}" fill="none" stroke="#01909d" stroke-width="2.4" stroke-dasharray="1.5 5" stroke-linecap="round"/>`;
+    }
+    un.forEach((v, i) => { if (i) s += `<circle cx="${X(i)}" cy="${Y(v)}" r="4.5" fill="#9aa5ab"/>`; });
+    tr.forEach((v, i) => { if (i) s += `<circle cx="${X(i)}" cy="${Y(v)}" r="5" fill="#01909d"/>`; });
+    s += `<circle cx="${X(0)}" cy="${Y(cur)}" r="8" fill="#fff" stroke="#0a6e77" stroke-width="2.6"/>`;
+    s += `<text x="${X(n) + 10}" y="${Y(tr[n]) + 5}" fill="#0a6e77" font-size="14" font-weight="700">${f1(tr[n])}</text>`;
+    s += `<text x="${X(n) + 10}" y="${Y(un[n]) + 5 + (Math.abs(Y(un[n]) - Y(tr[n])) < 16 ? 14 : 0)}" fill="#6b7a7b" font-size="14" font-weight="700">${f1(un[n])}</text>`;
+    labels.forEach((lb, i) => { const on = adult && i === n; s += `<text x="${X(i)}" y="${H - B + 22}" text-anchor="middle" fill="${on ? '#0a6e77' : '#6b7a7b'}" font-size="14"${on ? ' font-weight="700"' : ''}>${lb}</text>`; });
+    s += `<line x1="${L}" x2="${L + 24}" y1="${H - 12}" y2="${H - 12}" stroke="#01909d" stroke-width="2.6"/><text x="${L + 30}" y="${H - 7}" fill="#233334" font-size="13">GH治療を続けた場合</text>`;
+    s += `<line x1="${L + 190}" x2="${L + 214}" y1="${H - 12}" y2="${H - 12}" stroke="#9aa5ab" stroke-width="2.2" stroke-dasharray="7 4"/><text x="${L + 220}" y="${H - 7}" fill="#233334" font-size="13">治療しない場合</text>`;
+    return s + '</svg>';
+  }
+
   function update() {
     const paper = $('paper'), alertsBox = $('alerts');
     const checks = currentChecks();
@@ -1290,24 +1337,26 @@ const GH = (() => {
       <article class="paper">
       ${head}
 
-      ${r.outlook.length ? `<section class="blk">
-        <div class="sh"><div class="sh-title"><span class="num">5</span>1年後の見通し</div><div class="sh-en">OUTLOOK</div></div>
+      ${r.outlookYears.length ? `<section class="blk">
+        <div class="sh"><div class="sh-title"><span class="num">5</span>これからの見通し</div><div class="sh-en">OUTLOOK</div></div>
         <div class="cards c2">
-          <div class="card" style="padding:6px">${outlookChart(height, r.outlook)}</div>
+          <div class="card" style="padding:6px">${outlookYearsChart(height, r.outlookYears)}</div>
           <div class="card" style="text-align:left">
-            <table class="outlook-table">
-              <tr><th></th>${r.outlook.map(o => `<th class="${o.label === '1年後' ? 'hl' : ''}">${o.label}</th>`).join('')}</tr>
-              <tr><td class="row-label">治療しない場合</td>${r.outlook.map(o => `<td class="num grey ${o.label === '1年後' ? 'hl' : ''}">${f1(o.untreated)}</td>`).join('')}</tr>
-              <tr><td class="row-label">GH治療をした場合</td>${r.outlook.map(o => `<td class="num dark ${o.label === '1年後' ? 'hl' : ''}">${f1(o.treated)}</td>`).join('')}</tr>
-              <tr><td class="row-label">治療による差</td>${r.outlook.map(o => `<td class="num bright ${o.label === '1年後' ? 'hl' : ''}">${(o.difference >= 0 ? '+' : '') + f1(o.difference)}</td>`).join('')}</tr>
+            <table class="outlook-table yrs">
+              <tr><th></th>${r.outlookYears.map(o => `<th class="${o.label === '大人' ? 'hl' : ''}">${o.label}</th>`).join('')}</tr>
+              <tr><td class="row-label">治療しない場合</td>${r.outlookYears.map(o => `<td class="num grey ${o.label === '大人' ? 'hl' : ''}">${f1(o.untreated)}</td>`).join('')}</tr>
+              <tr><td class="row-label">GH治療を続けた場合</td>${r.outlookYears.map(o => `<td class="num dark ${o.label === '大人' ? 'hl' : ''}">${f1(o.treated)}</td>`).join('')}</tr>
+              <tr class="diff"><td class="row-label">治療による差</td>${r.outlookYears.map(o => `<td class="num bright ${o.label === '大人' ? 'hl' : ''}">${(o.difference >= 0 ? '+' : '') + f1(o.difference)}</td>`).join('')}</tr>
             </table>
-            <p class="r-note">単位：cm。治療は続けるほど差が広がっていきます。長期的な見通しの目安としてご覧ください。</p>
+            <p class="r-note">${r.outlookYears[r.outlookYears.length - 1].difference > 0.05
+              ? '単位：cm。治療を続けた場合の見通しです。差は1年目にいちばん大きくつき、そのあとも少しずつ広がっていきます。「大人」は③の予測と同じ値です。'
+              : '単位：cm。治療による上乗せは見込んでいないため、差は出ません。「大人」は③の予測と同じ値です。'}</p>
           </div>
         </div>
       </section>` : ''}
 
       <section class="blk">
-        <div class="sh"><div class="sh-title"><span class="num">${r.outlook.length ? 6 : 5}</span>成長のペース</div><div class="sh-en">GROWTH PACE</div></div>
+        <div class="sh"><div class="sh-title"><span class="num">${r.outlookYears.length ? 6 : 5}</span>成長のペース</div><div class="sh-en">GROWTH PACE</div></div>
         <div class="cards pace">
           <div class="card"><span class="pill${warnV ? ' warn' : ''}">1年間の伸び</span><div class="pace-head${warnV ? ' warn' : (v.available ? '' : ' muted')}">${esc(v.label)}</div><p>${esc(v.description)}</p>${v.sourceNote ? `<p class="source">※${esc(v.sourceNote)}</p>` : ''}</div>
           <div class="card"><span class="pill">思春期の状況</span><div class="pace-head">${GH.TANNER_LABEL[r.stage]}</div><p>${REMAINING[r.stage]}</p></div>
@@ -1316,12 +1365,12 @@ const GH = (() => {
       </section>
 
       ${r.lifestyle.length ? `<section class="blk">
-        <div class="sh"><div class="sh-title"><span class="num">${r.outlook.length ? 7 : 6}</span>毎日の生活でできること</div><div class="sh-en">DAILY HABITS</div></div>
+        <div class="sh"><div class="sh-title"><span class="num">${r.outlookYears.length ? 7 : 6}</span>毎日の生活でできること</div><div class="sh-en">DAILY HABITS</div></div>
         <div class="cards habits">${r.lifestyle.map(a => `<div class="card"><div class="habit-head"><span class="habit-title">${esc(a.title)}</span><span class="habit-current">現在：${esc(a.current)}</span></div><p>${esc(a.comment)}</p></div>`).join('')}</div>
       </section>` : ''}
 
       <section class="blk">
-        <div class="sh"><div class="sh-title"><span class="num">${(r.outlook.length ? 7 : 6) + (r.lifestyle.length ? 1 : 0)}</span>今後の流れ</div><div class="sh-en">NEXT STEPS</div></div>
+        <div class="sh"><div class="sh-title"><span class="num">${(r.outlookYears.length ? 7 : 6) + (r.lifestyle.length ? 1 : 0)}</span>今後の流れ</div><div class="sh-en">NEXT STEPS</div></div>
         <div class="steps">
           <div><div class="step-no">STEP 01</div><div class="step-title">結果のご説明</div><span class="badge">オンライン</span><p>本レポートをもとに、担当医が検査結果と成長の見通しをご説明します。</p></div>
           <div><div class="step-no">STEP 02</div><div class="step-title">治療方針のご相談</div><span class="badge">オンライン</span><p>治療の要否・期間・費用をご説明し、ご納得いただいた場合のみ治療を開始します。</p></div>
