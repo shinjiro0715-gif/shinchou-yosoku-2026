@@ -239,6 +239,7 @@ main.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-
 /* parent-friendly-2 */
 /* parent-friendly-3 */
 /* parent-friendly-4 */
+/* parent-friendly-5 */
 .cards.c2.outlook-yrs { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
 @media (max-width: 560px) { .cards.c2.outlook-yrs { grid-template-columns: minmax(0, 1fr); } }
 .habit-current { display: block; margin-top: 1px; }
@@ -1206,7 +1207,7 @@ const GH = (() => {
     const legendItems = [['band', '多くの子が入る範囲'], ['sd2', '低身長の目安'], ['un', `治療をしない場合 ${f1(r.untreated)}cm`], ['tr', `成長ホルモン治療をした場合 ${f1(r.treated)}cm`], ['mean', '同じ年齢の平均']].concat(r.history.length > 1 ? [['pt', 'これまでの測定']] : []);
     const W = 1000, L = 84, R = 24, T = 16;
     const wrap = legendItems.reduce((w, it) => w + legendW(it[1]), 0) > W - L - R;
-    const H = wrap ? 410 : 380, B = wrap ? 124 : 92;
+    const H = wrap ? 418 : 388, B = wrap ? 132 : 100;
     const stds = r.standards;
     const ages = r.trajectory.map(p => p.age).concat(r.history.map(p => p.age));
     const x0 = 0, x1 = 18.4;
@@ -1221,7 +1222,7 @@ const GH = (() => {
     let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="成長曲線と成人身長の予測">`;
     for (let h = Math.ceil(y0 / 25) * 25; h <= y1; h += 25) s += `<line x1="${L}" x2="${W - R}" y1="${Y(h)}" y2="${Y(h)}" stroke="#e3eceb" stroke-width="1.4"/><text x="${L - 8}" y="${Y(h) + 5}" text-anchor="end" fill="#4f5f60" font-size="20">${h}</text>`;
     for (let a = 0; a <= 18; a += 3) s += `<text x="${X(a)}" y="${H - B + 26}" text-anchor="middle" fill="#4f5f60" font-size="20">${a}</text>`;
-    s += `<text x="${(L + W - R) / 2}" y="${H - B + 52}" text-anchor="middle" fill="#4f5f60" font-size="19">年齢（歳）</text>`;
+    s += `<text x="${(L + W - R) / 2}" y="${H - B + 60}" text-anchor="middle" fill="#4f5f60" font-size="19">年齢（歳）</text>`;
     s += `<text x="22" y="${(T + H - B) / 2}" text-anchor="middle" fill="#4f5f60" font-size="19" transform="rotate(-90 22 ${(T + H - B) / 2})">身長（cm）</text>`;
     s += `<path d="${path(xs.map((a, i) => [a, hi[i]]).concat(xs.map((a, i) => [a, lo[i]]).reverse()))} Z" fill="#e3f1f2"/>`;
     s += `<path d="${path(xs.map((a, i) => [a, mid[i]]))}" fill="none" stroke="#01909d" stroke-width="1.8"/>`;
@@ -1277,7 +1278,7 @@ const GH = (() => {
   }
 
   function outlookYearsChart(cur, rows) {
-    const W = 520, H = 300, L = 50, R = 76, T = 20, B = 72;
+    const W = 520, H = 306, L = 50, R = 76, T = 20, B = 78;
     const labels = ['現在'].concat(rows.map(o => o.label));
     const un = [cur].concat(rows.map(o => o.untreated)), tr = [cur].concat(rows.map(o => o.treated));
     const n = labels.length - 1, adult = labels[n] === '大人';
@@ -1301,8 +1302,8 @@ const GH = (() => {
     tr.forEach((v, i) => { if (i) s += `<circle cx="${X(i)}" cy="${Y(v)}" r="5" fill="#01909d"/>`; });
     s += `<circle cx="${X(0)}" cy="${Y(cur)}" r="8" fill="#fff" stroke="#0a6e77" stroke-width="2.6"/>`;
     s += `<text x="${X(n) + 10}" y="${Y(tr[n]) + 6}" fill="#0a6e77" font-size="18" font-weight="700">${f1(tr[n])}</text>`;
-    s += `<text x="${X(n) + 10}" y="${Y(un[n]) + 6 + (Math.abs(Y(un[n]) - Y(tr[n])) < 20 ? 18 : 0)}" fill="#4f5f60" font-size="18" font-weight="700">${f1(un[n])}</text>`;
-    labels.forEach((lb, i) => { const on = adult && i === n; s += `<text x="${X(i)}" y="${H - B + 26}" text-anchor="middle" fill="${on ? '#0a6e77' : '#4f5f60'}" font-size="18"${on ? ' font-weight="700"' : ''}>${lb}</text>`; });
+    s += `<text x="${X(n) + 10}" y="${Math.max(Y(un[n]) + 6, Y(tr[n]) + 6 + 24)}" fill="#4f5f60" font-size="18" font-weight="700">${f1(un[n])}</text>`;
+    labels.forEach((lb, i) => { const on = adult && i === n; s += `<text x="${X(i)}" y="${H - B + 32}" text-anchor="middle" fill="${on ? '#0a6e77' : '#4f5f60'}" font-size="18"${on ? ' font-weight="700"' : ''}>${lb}</text>`; });
     s += `<line x1="${L}" x2="${L + 24}" y1="${H - 12}" y2="${H - 12}" stroke="#01909d" stroke-width="2.6"/><text x="${L + 30}" y="${H - 7}" fill="#233334" font-size="17">治療を続けた場合</text>`;
     s += `<line x1="${L + 200}" x2="${L + 224}" y1="${H - 12}" y2="${H - 12}" stroke="#9aa5ab" stroke-width="2.2" stroke-dasharray="7 4"/><text x="${L + 230}" y="${H - 7}" fill="#233334" font-size="17">治療をしない場合</text>`;
     return s + '</svg>';
