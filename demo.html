@@ -1239,7 +1239,8 @@ const GH = (() => {
     const past = r.history.slice(0, -1), cur = r.history[r.history.length - 1];
     past.forEach(p => { s += `<circle cx="${X(p.age)}" cy="${Y(p.height)}" r="4.5" fill="#0a6e77" opacity="0.85"/>`; });
     s += `<circle cx="${X(cur.age)}" cy="${Y(cur.height)}" r="8.5" fill="#fff" stroke="#0a6e77" stroke-width="3"/>`;
-    s += `<text x="${X(cur.age) + 12}" y="${Y(cur.height) + 22}" fill="#0a6e77" font-size="22" font-weight="700">現在 ${f1(cur.height)}cm</text>`;
+    { const nearRight = X(cur.age) > W - R - 175; // 右端に近いときは左側に出す（はみ出さないように）
+      s += `<text x="${X(cur.age) + (nearRight ? -14 : 12)}" y="${Y(cur.height) + 22}"${nearRight ? ' text-anchor="end"' : ''} fill="#0a6e77" font-size="22" font-weight="700">現在 ${f1(cur.height)}cm</text>`; }
     // 凡例
     let lx = L, ly = wrap ? H - 36 : H - 8;
     legendItems.forEach(([k, label]) => {
