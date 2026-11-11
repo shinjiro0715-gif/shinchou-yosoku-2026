@@ -236,7 +236,9 @@ main.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-
 .badge { font-size: 12.5px; }
 .contact .t { font-size: 17px; } .contact .s, .contact .c { font-size: 13.5px; } .contact .ph { font-size: 27px; }
 .about .t { font-size: 14.5px; } .about p { font-size: 13px; line-height: 1.75; }
-.p-foot { font-size: 12px; }
+/* parent-friendly-2 */
+.paper .p-foot { font-size: 12px; }
+.summary li { grid-template-columns: 14.5em minmax(0, 1fr); padding: 6px 0; }
 .p-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin-top: 14px; padding-top: 8px; border-top: 0.8px solid var(--r-line); font-size: 10px; color: var(--r-sub3); }
 
 /* ===== LINE ===== */
@@ -1352,7 +1354,7 @@ const GH = (() => {
         ${LOGO ? `<img src="${LOGO}" alt="${CLINIC}">` : '<span></span>'}
         <div class="ttl"><h2>成長ホルモン治療 成長予測レポート</h2></div>
       </header>`;
-    const foot = n => `<div class="p-foot"><span>${CLINIC}　｜　発行日：${rdate}</span><span>検査結果をもとにしたレポートです　${n} / 3</span></div>`;
+    const foot = n => `<div class="p-foot"><span>${CLINIC}　｜　発行日：${rdate}</span><span>検査結果をもとにしたレポートです　${n} / 4</span></div>`;
     paper.innerHTML = `<article class="paper">
       ${head}
       <div class="p-bar">
@@ -1364,10 +1366,10 @@ const GH = (() => {
         <div class="sum-t">このレポートのまとめ</div>
         <ul>
           <li><span class="k">今の身長</span><span><b>${f1(height)}</b>cm　${esc(plain(r.sdsDescription))}<span class="sub">${rankText(r.sds)}</span></span></li>
-          <li><span class="k">治療をしない場合</span><span>大人の身長は 約<b>${f1(r.untreated)}</b>cm の見込みです<span class="sub">予測の幅 ${r.untreatedRange}cm</span></span></li>
+          <li><span class="k">治療をしない場合</span><span>大人の身長は 約<b>${f1(r.untreated)}</b>cm の見込みです</span></li>
           ${r.effect > 0.05
-            ? `<li><span class="k">成長ホルモン治療を続けた場合</span><span>約<b>${f1(r.treated)}</b>cm（<b>${r.effectText}</b>cm）の見込みです<span class="sub">予測の幅 ${r.treatedRange}cm</span></span></li>`
-            : `<li><span class="k">成長ホルモン治療をした場合</span><span>治療による上乗せは見込んでいません<span class="sub">理由は2枚目の③に書いています</span></span></li>`}
+            ? `<li><span class="k">成長ホルモン治療を続けた場合</span><span>約<b>${f1(r.treated)}</b>cm（<b>${r.effectText}</b>cm）の見込みです</span></li>`
+            : `<li><span class="k">成長ホルモン治療をした場合</span><span>治療による上乗せは見込んでいません（理由は2枚目の③）</span></li>`}
         </ul>
       </section>
 
@@ -1448,6 +1450,11 @@ const GH = (() => {
         </div>
       </section>
 
+      ${foot(3)}
+      </article>
+      <article class="paper">
+      ${head}
+
       ${r.lifestyle.length ? `<section class="blk">
         <div class="sh"><div class="sh-title"><span class="num">${r.outlookYears.length ? 7 : 6}</span>毎日の生活でできること</div></div>
         <div class="cards habits">${r.lifestyle.map(a => `<div class="card"><div class="habit-head"><span class="habit-title">${esc(a.title)}</span><span class="habit-current">現在：${esc(a.current)}</span></div><p>${esc(a.comment)}</p></div>`).join('')}</div>
@@ -1473,7 +1480,7 @@ const GH = (() => {
         <p>・治療の要否・効果については、担当医が診察時にご説明いたします。</p>
         <p class="sample">・本レポートはデモです。記載の患者名・数値はすべて架空のものです。</p>
       </div>
-      ${foot(3)}
+      ${foot(4)}
       </article>`;
   }
 
