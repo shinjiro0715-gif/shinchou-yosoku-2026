@@ -153,7 +153,8 @@ main.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-
 .outlook-table td.num { text-align: center; font-size: 16px; font-weight: 700; }
 .outlook-table .hl { background: var(--r-tint); }
 .outlook-table th.hl { color: var(--r-dark); font-weight: 700; }
-.outlook-table.yrs .row-label { width: 30%; } .outlook-table.yrs td.num { font-size: 15px; } .outlook-table.yrs tr.diff td.num { font-size: 17px; }
+.outlook-table.yrs th { line-height: 1.35; padding: 4px 2px; } .outlook-table.yrs .row-label { width: 20%; font-size: 12px; text-align: center; } .outlook-table.yrs td.row-label.hl { color: var(--r-dark); font-weight: 700; }
+.outlook-table.yrs td.num { font-size: clamp(13px, 3.6vw, 16px); } .outlook-table.yrs td.num.d { font-size: clamp(14px, 4vw, 18px); }
 .outlook-table .grey { color: var(--r-sub2); } .outlook-table .dark { color: var(--r-dark); } .outlook-table .bright { color: var(--r-accent); }
 .pace .card { text-align: left; padding: 8px 12px; }
 .pill { display: inline-block; border: 1px solid var(--r-accent); color: var(--r-dark); font-size: 10px; font-weight: 700; padding: 0 8px; border-radius: 3px; }
@@ -1343,10 +1344,8 @@ const GH = (() => {
           <div class="card" style="padding:6px">${outlookYearsChart(height, r.outlookYears)}</div>
           <div class="card" style="text-align:left">
             <table class="outlook-table yrs">
-              <tr><th></th>${r.outlookYears.map(o => `<th class="${o.label === '大人' ? 'hl' : ''}">${o.label}</th>`).join('')}</tr>
-              <tr><td class="row-label">治療しない場合</td>${r.outlookYears.map(o => `<td class="num grey ${o.label === '大人' ? 'hl' : ''}">${f1(o.untreated)}</td>`).join('')}</tr>
-              <tr><td class="row-label">GH治療を続けた場合</td>${r.outlookYears.map(o => `<td class="num dark ${o.label === '大人' ? 'hl' : ''}">${f1(o.treated)}</td>`).join('')}</tr>
-              <tr class="diff"><td class="row-label">治療による差</td>${r.outlookYears.map(o => `<td class="num bright ${o.label === '大人' ? 'hl' : ''}">${(o.difference >= 0 ? '+' : '') + f1(o.difference)}</td>`).join('')}</tr>
+              <tr><th></th><th>治療しない場合</th><th>GH治療を続けた場合</th><th class="d">治療による差</th></tr>
+              ${r.outlookYears.map(o => { const h = o.label === '大人' ? ' hl' : ''; return `<tr><td class="row-label${h}">${o.label}</td><td class="num grey${h}">${f1(o.untreated)}</td><td class="num dark${h}">${f1(o.treated)}</td><td class="num bright d${h}">${(o.difference >= 0 ? '+' : '') + f1(o.difference)}</td></tr>`; }).join('')}
             </table>
             <p class="r-note">${r.outlookYears[r.outlookYears.length - 1].difference > 0.05
               ? '単位：cm。治療を続けた場合の見通しです。差は1年目にいちばん大きくつき、そのあとも少しずつ広がっていきます。「大人」は③の予測と同じ値です。'
