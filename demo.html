@@ -187,6 +187,56 @@ main.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-
 .about p { font-size: 10px; color: var(--r-sub); }
 .about p.sample { color: #c8873a; }
 .sheets { display: grid; gap: 18px; min-width: 0; }
+/* parent-friendly 2026-11-11：保護者向けに読みやすく。いちばん小さい文字でも12px台 */
+.paper { font-size: 14px; line-height: 1.7; }
+.p-head h2 { font-size: 23px; }
+.p-bar .name { font-size: 18px; } .p-bar .meta, .p-bar .date { font-size: 14px; }
+.blk { margin-bottom: 18px; }
+.sh { margin-bottom: 8px; }
+.sh-title { font-size: 19.5px; }
+.sh-title .num { width: 28px; height: 28px; font-size: 14px; }
+.card { padding: 9px 12px; }
+.card-label { font-size: 13.5px; color: var(--r-text); font-weight: 700; line-height: 1.45; }
+.card-label small { display: block; font-size: 12px; font-weight: 400; color: var(--r-sub2); }
+.card-value { font-size: 25px; }
+.card-value .unit { font-size: 13.5px; }
+.card-value .na { font-size: 16px; }
+.card-sub { font-size: 13px; color: var(--r-sub); line-height: 1.55; margin-top: 3px; }
+.cards.small .card-value { font-size: 20px; }
+.cards.small .card-value.text { font-size: 16.5px; }
+.cards.small .card-label { font-size: 13px; }
+.tag-line { font-size: 14px; line-height: 1.75; margin-top: 8px; }
+.tag { font-size: 13px; padding: 2px 10px; }
+.r-note { font-size: 13.5px; line-height: 1.75; color: var(--r-sub); margin-top: 8px !important; }
+.p-value { font-size: 32px; } .p-value .unit { font-size: 15px; }
+.pred > div { padding: 12px 10px; }
+.bd { font-size: 13.5px; padding: 8px 12px; gap: 6px 22px; margin-top: 8px; }
+.summary { border: 2px solid var(--r-accent); border-radius: 12px; padding: 14px 18px 12px; margin-bottom: 20px; background: #fff; }
+.summary .sum-t { font-family: var(--serif); font-size: 19px; font-weight: 700; color: var(--r-dark); margin-bottom: 6px; }
+.summary ul { list-style: none; margin: 0; padding: 0; }
+.summary li { display: grid; grid-template-columns: 11.5em minmax(0, 1fr); gap: 4px 14px; padding: 8px 0; border-top: 1px solid var(--r-line); font-size: 15.5px; line-height: 1.6; }
+.summary li:first-child { border-top: 0; }
+.summary .k { font-weight: 700; color: var(--r-dark); }
+.summary b { font-size: 21px; color: var(--r-dark); font-variant-numeric: tabular-nums; }
+.summary .sub { display: block; font-size: 13.5px; color: var(--r-sub); }
+@media (max-width: 560px) { .summary li { grid-template-columns: minmax(0, 1fr); gap: 0; } }
+.outlook-table th { font-size: 13px; color: var(--r-text); }
+.outlook-table.yrs .row-label { font-size: 14.5px; color: var(--r-text); }
+.outlook-table.yrs td.num { font-size: 18px; } .outlook-table.yrs td.num.d { font-size: 20px; }
+@media (max-width: 400px) { .outlook-table.yrs td.num { font-size: 15px; } .outlook-table.yrs td.num.d { font-size: 17px; } }
+.pill { font-size: 13px; padding: 1px 10px; }
+.pace-head { font-size: 20px; }
+.pace p, .habits p, .steps p { font-size: 14px; line-height: 1.75; color: var(--r-text); }
+.pace p.source { font-size: 12.5px; color: var(--r-sub); }
+.habit-title { font-size: 16.5px; }
+.habit-current { font-size: 14px; color: var(--r-dark); font-weight: 700; }
+.steps > div { padding: 10px 14px; }
+.step-no { font-family: var(--sans); font-size: 13px; letter-spacing: 0; font-weight: 700; }
+.step-title { font-size: 16.5px; }
+.badge { font-size: 12.5px; }
+.contact .t { font-size: 17px; } .contact .s, .contact .c { font-size: 13.5px; } .contact .ph { font-size: 27px; }
+.about .t { font-size: 14.5px; } .about p { font-size: 13px; line-height: 1.75; }
+.p-foot { font-size: 12px; }
 .p-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin-top: 14px; padding-top: 8px; border-top: 0.8px solid var(--r-line); font-size: 10px; color: var(--r-sub3); }
 
 /* ===== LINE ===== */
@@ -1142,11 +1192,11 @@ const GH = (() => {
   // ---------- 報告書のグラフ（medical_pdf_service の matplotlib と同じ色・線） ----------
   function growthChart(r) {
     // 凡例は文字の幅を見積もって並べ、入りきらないときは2段にする（右端で切れないように）
-    const legendW = t => [...t].reduce((w, c) => w + (c.charCodeAt(0) < 256 ? 7.6 : 13.5), 0) + 50;
-    const legendItems = [['band', '標準範囲（±2SD）'], ['sd2', '-2SD（低身長の目安）'], ['un', `治療しない場合 ${f1(r.untreated)}cm`], ['tr', `GH治療をした場合 ${f1(r.treated)}cm`], ['mean', '同年齢の平均']].concat(r.history.length > 1 ? [['pt', 'これまでの測定']] : []);
+    const legendW = t => [...t].reduce((w, c) => w + (c.charCodeAt(0) < 256 ? 10.5 : 19), 0) + 56;
+    const legendItems = [['band', '多くの子が入る範囲'], ['sd2', '低身長の目安'], ['un', `治療をしない場合 ${f1(r.untreated)}cm`], ['tr', `成長ホルモン治療をした場合 ${f1(r.treated)}cm`], ['mean', '同じ年齢の平均']].concat(r.history.length > 1 ? [['pt', 'これまでの測定']] : []);
     const W = 1000, L = 52, R = 24, T = 16;
     const wrap = legendItems.reduce((w, it) => w + legendW(it[1]), 0) > W - L - R;
-    const H = wrap ? 364 : 340, B = wrap ? 98 : 74;
+    const H = wrap ? 410 : 380, B = wrap ? 124 : 92;
     const stds = r.standards;
     const ages = r.trajectory.map(p => p.age).concat(r.history.map(p => p.age));
     const x0 = 0, x1 = 18.4;
@@ -1159,17 +1209,17 @@ const GH = (() => {
     const X = a => L + (a - x0) / (x1 - x0) * (W - L - R), Y = h => T + (y1 - h) / (y1 - y0) * (H - T - B);
     const path = pts => pts.map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1)).join(' ');
     let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="成長曲線と成人身長の予測">`;
-    for (let h = Math.ceil(y0 / 25) * 25; h <= y1; h += 25) s += `<line x1="${L}" x2="${W - R}" y1="${Y(h)}" y2="${Y(h)}" stroke="#e3eceb" stroke-width="1.4"/><text x="${L - 8}" y="${Y(h) + 5}" text-anchor="end" fill="#6b7a7b" font-size="15">${h}</text>`;
-    for (let a = 0; a <= 18; a += 3) s += `<text x="${X(a)}" y="${H - B + 22}" text-anchor="middle" fill="#6b7a7b" font-size="15">${a}</text>`;
-    s += `<text x="${(L + W - R) / 2}" y="${H - B + 42}" text-anchor="middle" fill="#6b7a7b" font-size="15">年齢（歳）</text>`;
-    s += `<text x="14" y="${(T + H - B) / 2}" text-anchor="middle" fill="#6b7a7b" font-size="15" transform="rotate(-90 14 ${(T + H - B) / 2})">身長（cm）</text>`;
+    for (let h = Math.ceil(y0 / 25) * 25; h <= y1; h += 25) s += `<line x1="${L}" x2="${W - R}" y1="${Y(h)}" y2="${Y(h)}" stroke="#e3eceb" stroke-width="1.4"/><text x="${L - 8}" y="${Y(h) + 5}" text-anchor="end" fill="#4f5f60" font-size="20">${h}</text>`;
+    for (let a = 0; a <= 18; a += 3) s += `<text x="${X(a)}" y="${H - B + 26}" text-anchor="middle" fill="#4f5f60" font-size="20">${a}</text>`;
+    s += `<text x="${(L + W - R) / 2}" y="${H - B + 52}" text-anchor="middle" fill="#4f5f60" font-size="19">年齢（歳）</text>`;
+    s += `<text x="14" y="${(T + H - B) / 2}" text-anchor="middle" fill="#4f5f60" font-size="19" transform="rotate(-90 14 ${(T + H - B) / 2})">身長（cm）</text>`;
     s += `<path d="${path(xs.map((a, i) => [a, hi[i]]).concat(xs.map((a, i) => [a, lo[i]]).reverse()))} Z" fill="#e3f1f2"/>`;
     s += `<path d="${path(xs.map((a, i) => [a, mid[i]]))}" fill="none" stroke="#01909d" stroke-width="1.8"/>`;
     s += `<path d="${path(xs.map((a, i) => [a, lo[i]]))}" fill="none" stroke="#9aa5ab" stroke-width="1.5" stroke-dasharray="6 4"/>`;
     if (r.geneticTarget) {
       const gy = Y(r.geneticTarget);
       s += `<line x1="${L}" x2="${W - R}" y1="${gy}" y2="${gy}" stroke="#b8864b" stroke-width="1.7" stroke-dasharray="1.5 3.5"/>`;
-      s += `<text x="${L + 8}" y="${gy - 6}" fill="#b8864b" font-size="14">遺伝的予測身長 ${f1(r.geneticTarget)}cm</text>`;
+      s += `<text x="${L + 8}" y="${gy - 6}" fill="#9a6a32" font-size="19">ご両親から見た目安 ${f1(r.geneticTarget)}cm</text>`;
     }
     s += `<path d="${path(r.trajectory.map(p => [p.age, p.untreated]))}" fill="none" stroke="#9aa5ab" stroke-width="2.5" stroke-dasharray="8 5"/>`;
     s += `<path d="${path(r.trajectory.map(p => [p.age, p.treated]))}" fill="none" stroke="#0a6e77" stroke-width="3.2"/>`;
@@ -1178,13 +1228,13 @@ const GH = (() => {
     const past = r.history.slice(0, -1), cur = r.history[r.history.length - 1];
     past.forEach(p => { s += `<circle cx="${X(p.age)}" cy="${Y(p.height)}" r="4.5" fill="#0a6e77" opacity="0.85"/>`; });
     s += `<circle cx="${X(cur.age)}" cy="${Y(cur.height)}" r="8.5" fill="#fff" stroke="#0a6e77" stroke-width="3"/>`;
-    s += `<text x="${X(cur.age) + 12}" y="${Y(cur.height) + 22}" fill="#0a6e77" font-size="16" font-weight="700">現在 ${f1(cur.height)}cm</text>`;
+    s += `<text x="${X(cur.age) + 12}" y="${Y(cur.height) + 22}" fill="#0a6e77" font-size="22" font-weight="700">現在 ${f1(cur.height)}cm</text>`;
     // 凡例
-    let lx = L, ly = wrap ? H - 30 : H - 8;
+    let lx = L, ly = wrap ? H - 36 : H - 8;
     legendItems.forEach(([k, label]) => {
-      if (lx + legendW(label) - 18 > W - R) { lx = L; ly += 22; }
+      if (lx + legendW(label) - 18 > W - R) { lx = L; ly += 30; }
       const sw = k === 'band' ? `<rect x="${lx}" y="${ly - 10}" width="26" height="10" fill="#e3f1f2"/>` : k === 'pt' ? `<circle cx="${lx + 13}" cy="${ly - 5}" r="4.5" fill="#0a6e77"/>` : `<line x1="${lx}" x2="${lx + 26}" y1="${ly - 5}" y2="${ly - 5}" stroke="${{ mean: '#01909d', sd2: '#9aa5ab', un: '#9aa5ab', tr: '#0a6e77' }[k]}" stroke-width="${k === 'tr' ? 3 : 2.2}"${k === 'sd2' || k === 'un' ? ' stroke-dasharray="6 4"' : ''}/>`;
-      s += sw + `<text x="${lx + 32}" y="${ly}" fill="#233334" font-size="13.5">${label}</text>`;
+      s += sw + `<text x="${lx + 32}" y="${ly}" fill="#233334" font-size="19">${label}</text>`;
       lx += legendW(label);
     });
     return s + '</svg>';
@@ -1217,7 +1267,7 @@ const GH = (() => {
   }
 
   function outlookYearsChart(cur, rows) {
-    const W = 520, H = 280, L = 46, R = 70, T = 20, B = 58;
+    const W = 520, H = 300, L = 50, R = 76, T = 20, B = 72;
     const labels = ['現在'].concat(rows.map(o => o.label));
     const un = [cur].concat(rows.map(o => o.untreated)), tr = [cur].concat(rows.map(o => o.treated));
     const n = labels.length - 1, adult = labels[n] === '大人';
@@ -1227,7 +1277,7 @@ const GH = (() => {
     const X = i => L + units[i] * (W - L - R) / umax, Y = v => T + (hi - v) / (hi - lo) * (H - T - B);
     let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="これからの見通し">`;
     if (adult) s += `<rect x="${X(n) - 0.32 * (W - L - R) / umax}" y="${T}" width="${0.64 * (W - L - R) / umax}" height="${H - T - B}" fill="#e8f4f5"/>`;
-    for (let v = lo; v <= hi; v += step) s += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#e3eceb" stroke-width="1.2"/><text x="${L - 7}" y="${Y(v) + 5}" text-anchor="end" fill="#6b7a7b" font-size="14">${v}</text>`;
+    for (let v = lo; v <= hi; v += step) s += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#e3eceb" stroke-width="1.2"/><text x="${L - 7}" y="${Y(v) + 6}" text-anchor="end" fill="#4f5f60" font-size="18">${v}</text>`;
     const m = adult ? n - 1 : n;
     const pts = (a, from, to) => a.slice(from, to + 1).map((v, k) => `${X(from + k).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
     s += `<polygon points="${pts(tr, 0, m)} ${tr.slice(0, m + 1).map((_, k) => `${X(m - k).toFixed(1)},${Y(un[m - k]).toFixed(1)}`).join(' ')}" fill="#e8f4f5" opacity="0.9"/>`;
@@ -1240,13 +1290,32 @@ const GH = (() => {
     un.forEach((v, i) => { if (i) s += `<circle cx="${X(i)}" cy="${Y(v)}" r="4.5" fill="#9aa5ab"/>`; });
     tr.forEach((v, i) => { if (i) s += `<circle cx="${X(i)}" cy="${Y(v)}" r="5" fill="#01909d"/>`; });
     s += `<circle cx="${X(0)}" cy="${Y(cur)}" r="8" fill="#fff" stroke="#0a6e77" stroke-width="2.6"/>`;
-    s += `<text x="${X(n) + 10}" y="${Y(tr[n]) + 5}" fill="#0a6e77" font-size="14" font-weight="700">${f1(tr[n])}</text>`;
-    s += `<text x="${X(n) + 10}" y="${Y(un[n]) + 5 + (Math.abs(Y(un[n]) - Y(tr[n])) < 16 ? 14 : 0)}" fill="#6b7a7b" font-size="14" font-weight="700">${f1(un[n])}</text>`;
-    labels.forEach((lb, i) => { const on = adult && i === n; s += `<text x="${X(i)}" y="${H - B + 22}" text-anchor="middle" fill="${on ? '#0a6e77' : '#6b7a7b'}" font-size="14"${on ? ' font-weight="700"' : ''}>${lb}</text>`; });
-    s += `<line x1="${L}" x2="${L + 24}" y1="${H - 12}" y2="${H - 12}" stroke="#01909d" stroke-width="2.6"/><text x="${L + 30}" y="${H - 7}" fill="#233334" font-size="13">GH治療を続けた場合</text>`;
-    s += `<line x1="${L + 190}" x2="${L + 214}" y1="${H - 12}" y2="${H - 12}" stroke="#9aa5ab" stroke-width="2.2" stroke-dasharray="7 4"/><text x="${L + 220}" y="${H - 7}" fill="#233334" font-size="13">治療しない場合</text>`;
+    s += `<text x="${X(n) + 10}" y="${Y(tr[n]) + 6}" fill="#0a6e77" font-size="18" font-weight="700">${f1(tr[n])}</text>`;
+    s += `<text x="${X(n) + 10}" y="${Y(un[n]) + 6 + (Math.abs(Y(un[n]) - Y(tr[n])) < 20 ? 18 : 0)}" fill="#4f5f60" font-size="18" font-weight="700">${f1(un[n])}</text>`;
+    labels.forEach((lb, i) => { const on = adult && i === n; s += `<text x="${X(i)}" y="${H - B + 26}" text-anchor="middle" fill="${on ? '#0a6e77' : '#4f5f60'}" font-size="18"${on ? ' font-weight="700"' : ''}>${lb}</text>`; });
+    s += `<line x1="${L}" x2="${L + 24}" y1="${H - 12}" y2="${H - 12}" stroke="#01909d" stroke-width="2.6"/><text x="${L + 30}" y="${H - 7}" fill="#233334" font-size="17">治療を続けた場合</text>`;
+    s += `<line x1="${L + 200}" x2="${L + 224}" y1="${H - 12}" y2="${H - 12}" stroke="#9aa5ab" stroke-width="2.2" stroke-dasharray="7 4"/><text x="${L + 230}" y="${H - 7}" fill="#233334" font-size="17">治療をしない場合</text>`;
     return s + '</svg>';
   }
+
+  // ---------- 保護者向けの言い換え（2026-11-11 案） ----------
+  // 計算の部品（calc.js＝本番と同じ）が作る文は変えず、表示するときだけ言い換える
+  const plain = t => String(t)
+    .replace(/在胎週数/g, '生まれたときの週数')
+    .replace(/（約([\d.]+)cm\/年）/g, '（1年に約$1cm）')
+    .replace(/同年齢/g, '同じ年齢');
+  const phi = z => { const t = 1 / (1 + 0.2316419 * Math.abs(z)); const d = 0.3989423 * Math.exp(-z * z / 2); const q = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - q : q; };
+  const rankText = z => {
+    if (z == null || isNaN(z)) return '';
+    const pct = phi(z) * 100;
+    if (pct < 1) return '背の順で100人並ぶと、いちばん前くらい';
+    if (pct <= 50) return `背の順で100人並ぶと、前から約${Math.round(pct)}番目`;
+    if (100 - pct < 1) return '背の順で100人並ぶと、いちばん後ろくらい';
+    return `背の順で100人並ぶと、後ろから約${Math.round(100 - pct)}番目`;
+  };
+  const LAB_NAME = { 'テストステロン': ['男性ホルモン', 'テストステロン'], 'エストラジオール': ['女性ホルモン', 'エストラジオール'], 'LH': ['思春期を始めるホルモン', 'LH'], 'FSH': ['思春期を始めるホルモン', 'FSH'], 'ALP（IFCC法）': ['骨が伸びる勢い', 'ALP（IFCC法）'] };
+  const labLabel = l => LAB_NAME[l] ? `${LAB_NAME[l][0]}<small>${LAB_NAME[l][1]}</small>` : esc(l);
+  const BD_NAME = { '年齢別の期待効果': '年齢から見込める分', '骨年齢による調整': '骨の年齢による分', '思春期による調整': '思春期の進み具合による分', '成長の残り期間による調整': '残りの成長期間による分', '最低見込み（2cm）への調整': '最低見込み（2cm）にそろえた分' };
 
   function update() {
     const paper = $('paper'), alertsBox = $('alerts');
@@ -1281,9 +1350,9 @@ const GH = (() => {
 
     const head = `<header class="p-head">
         ${LOGO ? `<img src="${LOGO}" alt="${CLINIC}">` : '<span></span>'}
-        <div class="ttl"><div class="eyebrow">GROWTH PREDICTION REPORT</div><h2>成長ホルモン治療 成長予測レポート</h2></div>
+        <div class="ttl"><h2>成長ホルモン治療 成長予測レポート</h2></div>
       </header>`;
-    const foot = n => `<div class="p-foot"><span>${CLINIC}　｜　発行日：${rdate}</span><span>検査結果をもとにしたレポートです　${n} / 2</span></div>`;
+    const foot = n => `<div class="p-foot"><span>${CLINIC}　｜　発行日：${rdate}</span><span>検査結果をもとにしたレポートです　${n} / 3</span></div>`;
     paper.innerHTML = `<article class="paper">
       ${head}
       <div class="p-bar">
@@ -1291,89 +1360,105 @@ const GH = (() => {
         <div class="date">測定日：${mdate}</div>
       </div>
 
+      <section class="summary">
+        <div class="sum-t">このレポートのまとめ</div>
+        <ul>
+          <li><span class="k">今の身長</span><span><b>${f1(height)}</b>cm　${esc(plain(r.sdsDescription))}<span class="sub">${rankText(r.sds)}</span></span></li>
+          <li><span class="k">治療をしない場合</span><span>大人の身長は 約<b>${f1(r.untreated)}</b>cm の見込みです<span class="sub">予測の幅 ${r.untreatedRange}cm</span></span></li>
+          ${r.effect > 0.05
+            ? `<li><span class="k">成長ホルモン治療を続けた場合</span><span>約<b>${f1(r.treated)}</b>cm（<b>${r.effectText}</b>cm）の見込みです<span class="sub">予測の幅 ${r.treatedRange}cm</span></span></li>`
+            : `<li><span class="k">成長ホルモン治療をした場合</span><span>治療による上乗せは見込んでいません<span class="sub">理由は2枚目の③に書いています</span></span></li>`}
+        </ul>
+      </section>
+
       <section class="blk">
-        <div class="sh"><div class="sh-title"><span class="num">1</span>お子さまの現在の状況</div><div class="sh-en">CURRENT STATUS</div></div>
+        <div class="sh"><div class="sh-title"><span class="num">1</span>お子さまの現在の状況</div></div>
         <div class="cards">
           <div class="card"><div class="card-label">現在の身長</div><div class="card-value">${f1(height)}<span class="unit">cm</span></div></div>
           <div class="card"><div class="card-label">現在の体重</div><div class="card-value">${weight != null ? f1(weight) + '<span class="unit">kg</span>' : '<span class="na">未測定</span>'}</div></div>
-          <div class="card tinted"><div class="card-label">同年齢との比較（SD値）</div><div class="card-value accent">${r.sdsText}<span class="unit">SD</span></div></div>
+          <div class="card tinted"><div class="card-label">同じ年齢の子と比べた位置<small>SD値</small></div><div class="card-value accent">${r.sdsText}<span class="unit">SD</span></div><div class="card-sub">${rankText(r.sds)}</div></div>
         </div>
         <div class="cards small">
-          <div class="card"><div class="card-label">骨年齢</div><div class="card-value">${r.boneAgeText ? r.boneAgeText + '<span class="unit">歳</span>' : '<span class="na">未測定</span>'}</div>${r.boneAgeNote ? `<div class="card-sub">${esc(r.boneAgeNote)}</div>` : ''}</div>
-          <div class="card"><div class="card-label">IGF-1</div><div class="card-value">${igf1 ? fg(igf1) + '<span class="unit">ng/mL</span>' : '<span class="na">未測定</span>'}</div></div>
-          <div class="card"><div class="card-label">リュープリン</div><div class="card-value text">${$('leup').checked ? '併用中' : '併用なし'}</div></div>
+          <div class="card"><div class="card-label">骨の年齢<small>骨年齢（手のレントゲン）</small></div><div class="card-value">${r.boneAgeText ? r.boneAgeText + '<span class="unit">歳</span>' : '<span class="na">未測定</span>'}</div>${r.boneAgeNote ? `<div class="card-sub">${esc(r.boneAgeNote)}</div>` : ''}</div>
+          <div class="card"><div class="card-label">成長ホルモンの働き<small>IGF-1</small></div><div class="card-value">${igf1 ? fg(igf1) + '<span class="unit">ng/mL</span>' : '<span class="na">未測定</span>'}</div></div>
+          <div class="card"><div class="card-label">思春期をゆっくりにするお薬<small>リュープリン</small></div><div class="card-value text">${$('leup').checked ? '使っています' : '使っていません'}</div></div>
         </div>
-        ${r.labCards.length ? `<div class="cards small c4">${r.labCards.map(c => `<div class="card"><div class="card-label">${esc(c.label)}</div><div class="card-value">${c.value ? esc(c.value) + (c.unit ? `<span class="unit">${c.unit}</span>` : '') : '<span class="na">未測定</span>'}</div>${c.note ? `<div class="card-sub">${esc(c.note)}</div>` : ''}</div>`).join('')}</div>` : ''}
-        <p class="tag-line"><span class="tag">身長</span>${esc(r.sdsDescription)}</p>
+        ${r.labCards.length ? `<div class="cards small c4">${r.labCards.map(c => `<div class="card"><div class="card-label">${labLabel(c.label)}</div><div class="card-value">${c.value ? esc(c.value) + (c.unit ? `<span class="unit">${c.unit}</span>` : '') : '<span class="na">未測定</span>'}</div>${c.note ? `<div class="card-sub">${esc(c.note)}</div>` : ''}</div>`).join('')}</div>` : ''}
+        
       </section>
 
       <section class="blk">
-        <div class="sh"><div class="sh-title"><span class="num">2</span>ご両親の身長から見た予測身長</div><div class="sh-en">GENETIC TARGET</div></div>
+        <div class="sh"><div class="sh-title"><span class="num">2</span>ご両親の身長から見た予測身長</div></div>
         <div class="cards">
           <div class="card"><div class="card-label">お父さまの身長</div><div class="card-value">${father != null ? f1(father) + '<span class="unit">cm</span>' : '<span class="na">-</span>'}</div></div>
           <div class="card"><div class="card-label">お母さまの身長</div><div class="card-value">${mother != null ? f1(mother) + '<span class="unit">cm</span>' : '<span class="na">-</span>'}</div></div>
-          <div class="card tinted"><div class="card-label">遺伝的予測身長</div><div class="card-value accent">${r.geneticTarget ? '<span class="approx">約</span>' + f1(r.geneticTarget) + '<span class="unit">cm</span>' : '<span class="na">-</span>'}</div></div>
+          <div class="card tinted"><div class="card-label">ご両親から見た目安<small>遺伝的予測身長</small></div><div class="card-value accent">${r.geneticTarget ? '<span class="approx">約</span>' + f1(r.geneticTarget) + '<span class="unit">cm</span>' : '<span class="na">-</span>'}</div></div>
         </div>
-        <p class="r-note">ご両親の身長から算出した成人身長の目安です。実際の身長は、成長のペースや思春期の時期によって変わります。</p>
+        <p class="r-note">ご両親の身長から計算した、大人の身長の目安です。実際は、成長のペースや思春期の時期で変わります。</p>
       </section>
 
-      <section class="blk">
-        <div class="sh"><div class="sh-title"><span class="num">3</span>成長ホルモン治療をした場合の予測</div><div class="sh-en">PREDICTION</div></div>
-        <div class="pred">
-          <div class="pu"><div class="card-label">治療しない場合の成人身長</div><div class="p-value grey">${f1(r.untreated)}<span class="unit">cm</span></div><div class="card-sub">予測の幅 ${r.untreatedRange}cm</div></div>
-          <div class="pe"><div class="card-label">治療による期待増加</div><div class="p-value bright">${r.effectText}<span class="unit">cm</span></div>${r.ghVariance ? `<div class="card-sub">予測精度 ±${r.ghVariance}cm</div>` : ''}</div>
-          <div class="pt"><div class="card-label">GH治療をした場合の成人身長</div><div class="p-value dark">${f1(r.treated)}<span class="unit">cm</span></div><div class="card-sub">予測の幅 ${r.treatedRange}cm</div></div>
-        </div>
-        ${r.breakdown.length ? `<div class="bd"><span class="h">期待増加の内訳</span>${r.breakdown.map(b => `<span><span class="l">${esc(b.label)}</span><span class="v">${b.value}cm</span></span>`).join('')}</div>` : ''}
-        <p class="tag-line"><span class="tag">算出方法</span>${esc(r.maturityNote + r.notes.join(''))}</p>
-        <p class="r-note">「治療しない場合」は骨年齢・思春期の進み具合から見た体の成熟度を基準にした推定値、「GH治療をした場合」は当院で設定している年齢別の期待効果に骨年齢・思春期の進行度などに応じた調整を加えた値です。<strong>いずれも検査結果をもとにした予測値であり、目安としてお考えください。</strong></p>
-      </section>
-
-      <section class="blk">
-        <div class="sh"><div class="sh-title"><span class="num">4</span>成長曲線と成人身長の予測</div><div class="sh-en">GROWTH CHART</div></div>
-        <div class="chart-card">${growthChart(r)}</div>
-      </section>
       ${foot(1)}
       </article>
       <article class="paper">
       ${head}
 
+      <section class="blk">
+        <div class="sh"><div class="sh-title"><span class="num">3</span>成長ホルモン治療をした場合の予測</div></div>
+        <div class="pred">
+          <div class="pu"><div class="card-label">治療をしない場合の<br>大人の身長</div><div class="p-value grey">${f1(r.untreated)}<span class="unit">cm</span></div><div class="card-sub">予測の幅 ${r.untreatedRange}cm</div></div>
+          <div class="pe"><div class="card-label">治療で見込める<br>上乗せ</div><div class="p-value bright">${r.effectText}<span class="unit">cm</span></div>${r.ghVariance ? `<div class="card-sub">±${r.ghVariance}cmほど前後します</div>` : ''}</div>
+          <div class="pt"><div class="card-label">成長ホルモン治療をした場合の<br>大人の身長</div><div class="p-value dark">${f1(r.treated)}<span class="unit">cm</span></div><div class="card-sub">予測の幅 ${r.treatedRange}cm</div></div>
+        </div>
+        ${r.breakdown.length ? `<div class="bd"><span class="h">上乗せの内訳</span>${r.breakdown.map(b => `<span><span class="l">${esc(BD_NAME[b.label] || b.label)}</span><span class="v">${b.value}cm</span></span>`).join('')}</div>` : ''}
+        <p class="tag-line"><span class="tag">計算のしかた</span>${esc(plain(r.maturityNote + r.notes.join('')))}</p>
+        <p class="r-note">どちらも検査の結果から計算した予測で、目安です。実際の伸びとは差が出ることがあります。</p>
+      </section>
+
+      <section class="blk">
+        <div class="sh"><div class="sh-title"><span class="num">4</span>成長曲線と成人身長の予測</div></div>
+        <div class="chart-card">${growthChart(r)}</div>
+      </section>
+      ${foot(2)}
+      </article>
+      <article class="paper">
+      ${head}
+
       ${r.outlookYears.length ? `<section class="blk">
-        <div class="sh"><div class="sh-title"><span class="num">5</span>これからの見通し</div><div class="sh-en">OUTLOOK</div></div>
+        <div class="sh"><div class="sh-title"><span class="num">5</span>これからの見通し</div></div>
         <div class="cards c2">
           <div class="card" style="padding:6px">${outlookYearsChart(height, r.outlookYears)}</div>
           <div class="card" style="text-align:left">
             <table class="outlook-table yrs">
-              <tr><th></th><th><span class="nw">治療しない</span><span class="nw">場合</span></th><th><span class="nw">GH治療を</span><span class="nw">続けた場合</span></th><th class="d"><span class="nw">治療による</span><span class="nw">差</span></th></tr>
+              <tr><th></th><th><span class="nw">治療を</span><span class="nw">しない場合</span></th><th><span class="nw">治療を</span><span class="nw">続けた場合</span></th><th class="d"><span class="nw">治療による</span><span class="nw">差</span></th></tr>
               ${r.outlookYears.map(o => { const h = o.label === '大人' ? ' hl' : ''; return `<tr><td class="row-label${h}">${o.label}</td><td class="num grey${h}">${f1(o.untreated)}</td><td class="num dark${h}">${f1(o.treated)}</td><td class="num bright d${h}">${(o.difference >= 0 ? '+' : '') + f1(o.difference)}</td></tr>`; }).join('')}
             </table>
             <p class="r-note">${r.outlookYears[r.outlookYears.length - 1].difference > 0.05
-              ? '単位：cm。治療を続けた場合の見通しです。差は1年目にいちばん大きくつき、そのあとも少しずつ広がっていきます。「大人」は③の予測と同じ値です。'
-              : '単位：cm。治療による上乗せは見込んでいないため、差は出ません。「大人」は③の予測と同じ値です。'}</p>
+              ? '数字の単位はcmです。成長ホルモン治療を続けると、差は1年目にいちばん大きくつき、そのあとも少しずつ広がります。'
+              : '数字の単位はcmです。治療による上乗せは見込んでいないため、差は出ません。'}</p>
           </div>
         </div>
       </section>` : ''}
 
       <section class="blk">
-        <div class="sh"><div class="sh-title"><span class="num">${r.outlookYears.length ? 6 : 5}</span>成長のペース</div><div class="sh-en">GROWTH PACE</div></div>
+        <div class="sh"><div class="sh-title"><span class="num">${r.outlookYears.length ? 6 : 5}</span>成長のペース</div></div>
         <div class="cards pace">
-          <div class="card"><span class="pill${warnV ? ' warn' : ''}">1年間の伸び</span><div class="pace-head${warnV ? ' warn' : (v.available ? '' : ' muted')}">${esc(v.label)}</div><p>${esc(v.description)}</p>${v.sourceNote ? `<p class="source">※${esc(v.sourceNote)}</p>` : ''}</div>
+          <div class="card"><span class="pill${warnV ? ' warn' : ''}">1年間の伸び</span><div class="pace-head${warnV ? ' warn' : (v.available ? '' : ' muted')}">${esc(v.label)}</div><p>${esc(plain(v.description))}</p>${v.sourceNote ? `<p class="source">※${esc(v.sourceNote)}</p>` : ''}</div>
           <div class="card"><span class="pill">思春期の状況</span><div class="pace-head">${GH.TANNER_LABEL[r.stage]}</div><p>${REMAINING[r.stage]}</p></div>
-          ${r.sga && r.sga.available ? `<div class="card"><span class="pill${['possible', 'likely'].includes(r.sga.level) ? ' warn' : ''}">出生時の体格</span><div class="pace-head${['possible', 'likely'].includes(r.sga.level) ? ' warn' : ''}">${esc(r.sga.label)}</div><p>${esc(r.sga.description)}</p></div>` : `<div class="card"><span class="pill">出生時の体格</span><div class="pace-head muted">記録なし</div><p>出生時の身長・体重の記録がないため、評価していません。診察時に母子手帳で確認させてください。</p></div>`}
+          ${r.sga && r.sga.available ? `<div class="card"><span class="pill${['possible', 'likely'].includes(r.sga.level) ? ' warn' : ''}">出生時の体格</span><div class="pace-head${['possible', 'likely'].includes(r.sga.level) ? ' warn' : ''}">${esc(r.sga.label)}</div><p>${esc(plain(r.sga.description))}</p></div>` : `<div class="card"><span class="pill">出生時の体格</span><div class="pace-head muted">記録なし</div><p>出生時の身長・体重の記録がないため、評価していません。診察時に母子手帳で確認させてください。</p></div>`}
         </div>
       </section>
 
       ${r.lifestyle.length ? `<section class="blk">
-        <div class="sh"><div class="sh-title"><span class="num">${r.outlookYears.length ? 7 : 6}</span>毎日の生活でできること</div><div class="sh-en">DAILY HABITS</div></div>
+        <div class="sh"><div class="sh-title"><span class="num">${r.outlookYears.length ? 7 : 6}</span>毎日の生活でできること</div></div>
         <div class="cards habits">${r.lifestyle.map(a => `<div class="card"><div class="habit-head"><span class="habit-title">${esc(a.title)}</span><span class="habit-current">現在：${esc(a.current)}</span></div><p>${esc(a.comment)}</p></div>`).join('')}</div>
       </section>` : ''}
 
       <section class="blk">
-        <div class="sh"><div class="sh-title"><span class="num">${(r.outlookYears.length ? 7 : 6) + (r.lifestyle.length ? 1 : 0)}</span>今後の流れ</div><div class="sh-en">NEXT STEPS</div></div>
+        <div class="sh"><div class="sh-title"><span class="num">${(r.outlookYears.length ? 7 : 6) + (r.lifestyle.length ? 1 : 0)}</span>今後の流れ</div></div>
         <div class="steps">
-          <div><div class="step-no">STEP 01</div><div class="step-title">結果のご説明</div><span class="badge">オンライン</span><p>本レポートをもとに、担当医が検査結果と成長の見通しをご説明します。</p></div>
-          <div><div class="step-no">STEP 02</div><div class="step-title">治療方針のご相談</div><span class="badge">オンライン</span><p>治療の要否・期間・費用をご説明し、ご納得いただいた場合のみ治療を開始します。</p></div>
-          <div><div class="step-no">STEP 03</div><div class="step-title">定期診察・経過フォロー</div><span class="badge">検査施設・オンライン</span><p>定期的な診察と血液検査で、成長の様子と体調を確認しながら進めます。</p></div>
+          <div><div class="step-no">ステップ1</div><div class="step-title">結果のご説明</div><span class="badge">オンライン</span><p>本レポートをもとに、担当医が検査結果と成長の見通しをご説明します。</p></div>
+          <div><div class="step-no">ステップ2</div><div class="step-title">治療方針のご相談</div><span class="badge">オンライン</span><p>治療の要否・期間・費用をご説明し、ご納得いただいた場合のみ治療を開始します。</p></div>
+          <div><div class="step-no">ステップ3</div><div class="step-title">定期診察・経過フォロー</div><span class="badge">検査施設・オンライン</span><p>定期的な診察と血液検査で、成長の様子と体調を確認しながら進めます。</p></div>
         </div>
       </section>
 
@@ -1388,7 +1473,7 @@ const GH = (() => {
         <p>・治療の要否・効果については、担当医が診察時にご説明いたします。</p>
         <p class="sample">・本レポートはデモです。記載の患者名・数値はすべて架空のものです。</p>
       </div>
-      ${foot(2)}
+      ${foot(3)}
       </article>`;
   }
 
