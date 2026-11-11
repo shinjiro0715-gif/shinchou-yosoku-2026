@@ -1302,7 +1302,7 @@ const GH = (() => {
     tr.forEach((v, i) => { if (i) s += `<circle cx="${X(i)}" cy="${Y(v)}" r="5" fill="#01909d"/>`; });
     s += `<circle cx="${X(0)}" cy="${Y(cur)}" r="8" fill="#fff" stroke="#0a6e77" stroke-width="2.6"/>`;
     s += `<text x="${X(n) + 10}" y="${Y(tr[n]) + 6}" fill="#0a6e77" font-size="18" font-weight="700">${f1(tr[n])}</text>`;
-    s += `<text x="${X(n) + 10}" y="${Math.max(Y(un[n]) + 6, Y(tr[n]) + 6 + 24)}" fill="#4f5f60" font-size="18" font-weight="700">${f1(un[n])}</text>`;
+    s += `<text x="${X(n) + 10}" y="${Math.max(Y(un[n]) + 6, Y(tr[n]) + 6 + 30)}" fill="#4f5f60" font-size="18" font-weight="700">${f1(un[n])}</text>`;
     labels.forEach((lb, i) => { const on = adult && i === n; s += `<text x="${X(i)}" y="${H - B + 32}" text-anchor="middle" fill="${on ? '#0a6e77' : '#4f5f60'}" font-size="18"${on ? ' font-weight="700"' : ''}>${lb}</text>`; });
     s += `<line x1="${L}" x2="${L + 24}" y1="${H - 12}" y2="${H - 12}" stroke="#01909d" stroke-width="2.6"/><text x="${L + 30}" y="${H - 7}" fill="#233334" font-size="17">治療を続けた場合</text>`;
     s += `<line x1="${L + 200}" x2="${L + 224}" y1="${H - 12}" y2="${H - 12}" stroke="#9aa5ab" stroke-width="2.2" stroke-dasharray="7 4"/><text x="${L + 230}" y="${H - 7}" fill="#233334" font-size="17">治療をしない場合</text>`;
