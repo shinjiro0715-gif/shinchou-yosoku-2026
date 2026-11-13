@@ -247,6 +247,23 @@ main.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-
 /* charts-clear */
 /* stairs-view */
 /* stairs-up */
+/* real-pdf：PDFに保存のボタンと、印刷のときは報告書の4枚だけをA4で出す */
+.pdf-bar { background: #fff; border: 1px solid var(--gray-200, #e5e7eb); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+.pdf-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.pdf-btns button { border: 1px solid #0a6e77; background: #fff; color: #0a6e77; border-radius: 8px; padding: 8px 16px; font-size: 0.95rem; font-weight: 600; cursor: pointer; }
+.pdf-btns button.pdf-main { background: #0a6e77; color: #fff; }
+.pdf-note { margin: 8px 0 0; font-size: 0.8rem; color: #4b5563; line-height: 1.6; }
+.pdf-note.warn { color: #b91c1c; font-weight: 600; }
+@media print {
+  @page { size: A4; margin: 0; }
+  html, body { background: #fff !important; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .app-header, footer.site, #view-line, .layout > .col:first-child, .col-label, .pdf-bar, #alerts { display: none !important; }
+  main.wrap, .layout, .layout > .col, #view-precise { display: block !important; padding: 0 !important; margin: 0 !important; max-width: none !important; width: auto !important; }
+  .sheets { display: block !important; gap: 0 !important; }
+  .paper { width: 824px !important; max-width: none !important; box-shadow: none !important; border-radius: 0 !important; margin: 0 auto !important; zoom: 0.95; break-after: page; page-break-after: always; break-inside: avoid; }
+  .paper:last-child { break-after: auto; page-break-after: auto; }
+}
 /* check500-fix：2枚目をA4に収める（文字の大きさは保ったまま行間を少し詰める） */
 .points li { font-size: 14px; line-height: 1.6; margin: 2px 0; }
 .paper .st { padding: 5px 12px; }
@@ -337,8 +354,8 @@ footer.site p { margin: 0; max-width: 90ch; }
 <header class="app-header">
   <div class="in">
     <div>
-      <h1>精密身長予測デモ</h1>
-      <p>2026-11-10 修正版の計算をそのまま動かすデモです。架空の値で試してください（患者さんの情報は入れないでください）。</p>
+      <h1>精密身長予測 報告書づくり</h1>
+      <p>検査の結果を入れると、保護者に渡す報告書（A4・4枚）ができ、PDFに保存できます。入力した内容はこの画面の中だけで計算し、どこにも送信・保存しません。</p>
     </div>
     <div class="tabs" role="tablist" aria-label="表示の切り替え">
       <button id="tab-precise" role="tab" aria-selected="true" aria-controls="view-precise">精密検査（管理画面 → 報告書）</button>
@@ -354,12 +371,13 @@ footer.site p { margin: 0; max-width: 90ch; }
         <p class="col-label">スタッフの入力（管理画面）</p>
         <form class="col" id="f" autocomplete="off">
           <div class="a-card">
-            <h2>架空の見本</h2>
+            <h2>架空の見本（試すとき用）</h2>
             <div class="a-presets" id="presets"></div>
           </div>
           <div class="a-card">
             <h2>患者情報</h2>
             <div class="a-grid">
+              <label class="a-field" style="grid-column:1/-1"><span>お子さまのお名前（報告書に出ます）</span><input type="text" id="pname" placeholder="空欄のときは見本（SAMPLE）として作ります"></label>
               <div class="a-field"><span>性別</span>
                 <div class="a-seg" role="group" aria-label="性別">
                   <button type="button" id="sex-male" aria-pressed="true">男子</button>
@@ -440,6 +458,10 @@ footer.site p { margin: 0; max-width: 90ch; }
 
       <div class="col">
         <p class="col-label">保護者に渡す精密レポート（PDFと同じ並び）</p>
+        <div class="pdf-bar">
+          <div class="pdf-btns"><button type="button" id="btn-pdf" class="pdf-main">PDFに保存（A4・4枚）</button><button type="button" id="btn-clear">入力をすべて消す</button></div>
+          <p class="pdf-note" id="pdf-note">「PDFに保存」を押すと印刷の画面が開きます。送り先（プリンター）で「PDFに保存」を選んでください。入力した内容はこの画面の中だけで計算し、どこにも送信・保存しません。保存が終わったら「入力をすべて消す」で消してください。</p>
+        </div>
         <div class="sheets" id="paper" aria-live="polite"></div>
       </div>
     </div>
@@ -473,7 +495,7 @@ footer.site p { margin: 0; max-width: 90ch; }
 
 <footer class="site">
   <p>計算の中身：成長曲線は身長先生の期待値に合わせて補正。骨年齢・思春期・初経・採血（テストステロン・LH・E2・ALP）を使い、成人身長は真ん中の値±1.7cmの幅で示す。骨端線の閉鎖・ALP・初経後の残りの伸びで治療の上乗せを抑える。院の機械学習の補正は含まない。</p>
-  <p>検品：同じ入力の架空の500人で、本番のプログラム（Python）とすべての数字・文面が一致することを確かめた。診断や治療の判断には使わないでください。</p>
+  <p>検品：同じ入力の架空の500人で、本番のプログラム（Python）とすべての数字・文面が一致することを確かめた。報告書の内容は、渡す前に担当医が確認してください。</p>
 </footer>
 
 <script>
@@ -1348,6 +1370,7 @@ const GH = (() => {
   function loadPreset(i) {
     const p = PRESETS[i];
     document.querySelectorAll('#presets button').forEach((b, j) => b.setAttribute('aria-pressed', String(j === i)));
+    $('pname').value = '';
     const k = {}; p.checks.forEach(x => { k[x] = true; });
     setSex(p.sex, k);
     $('birth').value = p.birth; $('date').value = TODAY; $('height').value = p.height; $('weight').value = p.weight ?? ''; $('ba').value = p.ba ?? '';
@@ -1671,7 +1694,9 @@ const GH = (() => {
     const weight = num('weight'), igf1 = num('igf1'), father = num('father'), mother = num('mother');
     const v = r.velocity, warnV = v.level === 'low' || v.level === 'very_low';
     const hasCheck = r.effect > 0.05 && r.courses.rows.some(o => o.label === '1年後');  // ⑤「1年後の目安」を出すか
-    const d = date.split('-'), mdate = `${d[0]}年${d[1]}月${d[2]}日`, t = TODAY.split('-'), rdate = `${t[0]}年${t[1]}月${t[2]}日`;
+    const d = date.split('-'), mdate = `${d[0]}年${d[1]}月${d[2]}日`;
+    const now = new Date(), rdate = `${now.getFullYear()}年${String(now.getMonth() + 1).padStart(2, '0')}月${String(now.getDate()).padStart(2, '0')}日`;  // 発行日は今日
+    const pname = $('pname').value.trim(), isReal = pname !== '';
 
     // 管理画面の注意事項（スタッフ向け）
     const icon = '<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>';
@@ -1686,7 +1711,7 @@ const GH = (() => {
     paper.innerHTML = `<article class="paper">
       ${head}
       <div class="p-bar">
-        <div><span class="name">${sex === 'male' ? 'シンセル太郎' : 'シンセル花子'} 様</span><span class="meta">${sex === 'male' ? '男の子' : '女の子'} ／ ${r.ageText}</span><span class="demo">SAMPLE</span></div>
+        <div><span class="name">${isReal ? esc(pname) : (sex === 'male' ? 'シンセル太郎' : 'シンセル花子')} 様</span><span class="meta">${sex === 'male' ? '男の子' : '女の子'} ／ ${r.ageText}</span>${isReal ? '' : '<span class="demo">SAMPLE</span>'}</div>
         <div class="date">測定日：${mdate}</div>
       </div>
 
@@ -1819,7 +1844,7 @@ const GH = (() => {
         <p>・検査の結果から計算した予測で、実際の成長とは差が出ることがあります。</p>
         <p>・治療の効果には個人差があり、ここに書いた数字を約束するものではありません。</p>
         <p>・治療が必要かどうかや効果については、担当医が診察でご説明します。</p>
-        <p class="sample">・本レポートはデモです。記載の患者名・数値はすべて架空のものです。</p>
+        ${isReal ? '' : '<p class="sample">・本レポートはデモです。記載の患者名・数値はすべて架空のものです。</p>'}
       </div>
       ${foot(4)}
       </article>`;
@@ -1867,6 +1892,28 @@ const GH = (() => {
   window.addEventListener('hashchange', () => show(location.hash === '#line' ? 'line' : 'precise'));
   show(location.hash === '#line' ? 'line' : 'precise');
 
+  // real-pdf：PDFに保存・入力をすべて消す
+  const todayISO = () => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`; };
+  const NOTE = $('pdf-note').textContent;
+  $('btn-pdf').addEventListener('click', () => {
+    const note = $('pdf-note');
+    if (!document.querySelector('#paper .paper') || document.querySelector('#paper .a-err')) {
+      note.textContent = '報告書がまだできていません。生年月日・測定日・身長を入れてください。'; note.classList.add('warn'); return;
+    }
+    note.textContent = NOTE; note.classList.remove('warn');
+    const old = document.title, nm = $('pname').value.trim() || '見本';
+    document.title = `成長予測レポート_${nm}_${$('date').value || todayISO()}`;  // 保存するPDFのファイル名になる
+    window.print();
+    setTimeout(() => { document.title = old; }, 500);
+  });
+  $('btn-clear').addEventListener('click', () => {
+    $('f').reset();
+    document.querySelectorAll('#presets button').forEach(b => b.setAttribute('aria-pressed', 'false'));
+    $('pname').value = ''; $('date').value = todayISO(); $('missed').value = 0; $('leup').checked = false;
+    setSex('male', {});
+    $('pdf-note').textContent = NOTE; $('pdf-note').classList.remove('warn');
+    update();
+  });
   loadPreset(0);
   updateLine();
 })();
