@@ -349,6 +349,10 @@ main.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-
 
 footer.site { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 32px; color: var(--gray-500); font-size: 0.78rem; display: grid; gap: 4px; }
 footer.site p { margin: 0; max-width: 90ch; }
+
+/* nb-minus 2026-11-13 */
+.nb { white-space: nowrap; display: inline !important; }
+.contact .hrs { font-size: 13.5px; opacity: .9; margin-top: 2px; }
 </style>
 
 <header class="app-header">
@@ -1280,7 +1284,7 @@ const GH = (() => {
     const a = parseNumber(text);
     return a != null && a > 0 && a <= 20 ? a : null;
   }
-  function parseHeight(text) { const h = parseNumber(text); return h != null && h >= 50 && h <= 220 ? h : null; }
+  function parseHeight(text, lo = 50, hi = 220) { const h = parseNumber(text); return h != null && h >= lo && h <= hi ? h : null; }
   function ageLabel(age) {
     const v = Number(age); let y = Math.trunc(v); let mo = pyRound((v - y) * 12);
     if (mo >= 12) { y += 1; mo = 0; }
@@ -1305,7 +1309,29 @@ const GH = (() => {
     Object.assign(r, { treated_min: umin + pyRound(lo), treated_max: umax + pyRound(hi), gh_effect_min: pyRound(lo), gh_effect_max: pyRound(hi), needs_exam: false });
     return r;
   }
+  // 2026-11 入力ガード（line_conversation.py と同じ）：年齢・性別から見た身長の位置（SDS）が ±5 を超えたら聞き直す／大人の身長の見込みが 120cm 未満か 215cm 超なら数字を出さない
+  const HEIGHT_SDS_LIMIT = 5.0, ADULT_HEIGHT_MIN = 120, ADULT_HEIGHT_MAX = 215;
+  function heightSds(sex, age, height) {
+    const st = standards(sex === 'male' || sex === 'female' ? sex : 'male');
+    const ca = lineCalcAge(age);
+    const interp = key => {
+      if (ca <= st[0].age) return st[0][key];
+      for (let i = 0; i < st.length - 1; i++) {
+        const a0 = st[i].age, a1 = st[i + 1].age;
+        if (a0 <= ca && ca < a1) { const t = (ca - a0) / (a1 - a0); return st[i][key] + t * (st[i + 1][key] - st[i][key]); }
+      }
+      return st[st.length - 1][key];
+    };
+    return (Number(height) - interp('mean')) / interp('sd');
+  }
+  function lineReaskMessage(age, height) {
+    return `${ageLabel(age)}で${fmt(height)}cmは、とても珍しい数字です。\n打ち間違いがないか、もう一度今の身長を教えてください🙏\n（例: 120）\n\n※まちがいなければ、同じ数字をもう一度送ってください`;
+  }
   function lineMessage(sex, age, height, p) {
+    const adult = [p.untreated_min, p.untreated_max, p.treated_min, p.treated_max].filter(v => v != null);
+    if (adult.some(v => v < ADULT_HEIGHT_MIN || v > ADULT_HEIGHT_MAX)) {
+      return '入力いただいた数字では、身長の見込みをうまく計算できませんでした🙏\nお手数ですが、最初からもう一度お試しください。\n（メニューから「成長予測サービス」を選ぶか、「成長予測サービス」と送ってください）\nくわしく知りたい場合は、精密身長検査で骨の年齢から見込みをお出しできます。';
+    }
     const sexLabel = sex === 'male' ? '男の子' : '女の子';
     const emoji = sex === 'male' ? '👦' : '👧';
     let treatment;
@@ -1315,10 +1341,10 @@ const GH = (() => {
       treatment = `💊 成長ホルモン治療の場合\n　→ 約 ${p.treated_min}〜${p.treated_max} cm\n\n✨ 治療で上乗せが期待できる目安: ${eff}\n（個人差が大きく、この通りになるとは限りません）`;
     }
     const parent = p.genetic_target ? `👪 ご両親の身長から見た目安\n　→ 約 ${Math.trunc(Number(p.genetic_target) + 0.5)} cm（ご両親の身長だけで計算した目安です）\n\n` : '';
-    return `ありがとうございます！\n予測結果をお伝えしますね🌈\n\n━━━━━━━━━━━━━━━━━\n${emoji} ${ageLabel(age)}の${sexLabel}（現在${fmt(height)}cm）\n━━━━━━━━━━━━━━━━━\n\n🌱 自然に成長した場合\n　→ 約 ${p.untreated_min}〜${p.untreated_max} cm\n\n${parent}${treatment}\n━━━━━━━━━━━━━━━━━\n\n※今の身長と年齢から計算した簡易予測です。\n骨年齢がわかると、より正確になります。\n詳しい診断はカウンセリングで！\n\n⚠️ 成長ホルモン治療は「開始が早いほど効果が出やすい治療」です。\n骨の成長が進んでしまうと、同じ治療でも伸び幅は大きく制限されてしまいます。\nつまり、「あとでやろう」と思った時には、取り返せない可能性があります。\n\n📅 無料カウンセリング予約は、下部メニューからご予約ください。`;
+    return `ありがとうございます！\n予測結果をお伝えしますね🌈\n\n━━━━━━━━━━━━━━━━━\n${emoji} ${ageLabel(age)}の${sexLabel}（現在${fmt(height)}cm）\n━━━━━━━━━━━━━━━━━\n\n🌱 自然に成長した場合\n　→ 約 ${p.untreated_min}〜${p.untreated_max} cm\n\n${parent}${treatment}\n━━━━━━━━━━━━━━━━━\n\n※今の身長と年齢から計算した簡易予測です。\n\n🔍 もっと正確に知りたい方へ\n血液検査と手のレントゲン（骨年齢）の「精密身長検査」で、骨の成長があとどのくらい残っているかがわかり、より精密に予測できます。\n\n📍 検査は全国の提携クリニックで\nお住まいの近くで検査を受けて、結果はオンラインでご説明します。\n検査できる場所はこちら\nhttps://sincell-clinic.com/locations/\n\n⏳ 成長ホルモン治療は、始めるのが早いほど大きく伸ばしやすい治療です。\n「うちはどうだろう？」と思った今が、確かめどきです。\n\n📅 精密身長検査のご予約・ご相談は、下のメニューからどうぞ。`;
   }
 
-  return { smoothBand, evaluateSga, lifestyleAdvice, evaluateVelocity, precise, line, lineMessage, parseAge, parseHeight, ageLabel, pyRound, fmt, standards, calculateAge, addDays, TANNER_LABEL, tannerFromChecks };
+  return { smoothBand, evaluateSga, lifestyleAdvice, evaluateVelocity, precise, line, lineMessage, lineReaskMessage, heightSds, parseAge, parseHeight, ageLabel, pyRound, fmt, standards, calculateAge, addDays, TANNER_LABEL, tannerFromChecks };
 })();
 
 // parentPoints-2026-11-11
@@ -1376,7 +1402,7 @@ const GH = (() => {
     $('birth').value = p.birth; $('date').value = TODAY; $('height').value = p.height; $('weight').value = p.weight ?? ''; $('ba').value = p.ba ?? '';
     $('menarche').value = p.menarche ?? '';
     $('t').value = p.labs.t ?? ''; $('e2').value = p.labs.e2 ?? ''; $('lh').value = p.labs.lh ?? ''; $('fsh').value = p.labs.fsh ?? ''; $('alp').value = p.labs.alp ?? '';
-    $('igf1').value = p.igf1 ?? ''; $('missed').value = p.missed ?? 0; $('leup').checked = false;
+    $('igf1').value = p.igf1 ?? ''; $('missed').value = p.missed ?? 0; $('leup').checked = !!p.leup;
     $('prev-date').value = p.prev ? p.prev[0] : ''; $('prev-height').value = p.prev ? p.prev[1] : '';
     $('father').value = p.father ?? ''; $('mother').value = p.mother ?? '';
     const q = p.q || {};
@@ -1398,14 +1424,14 @@ const GH = (() => {
   // ---------- 報告書のグラフ（medical_pdf_service の matplotlib と同じ色・線） ----------
   function growthChart(r) {
     // charts-clear（2026-11-11）：今の年齢の少し前〜18歳に絞る／予測の線は右端に名前と数字を直接書く／1年治療は青
-    const ONE = '#2f7fd0', TWO = '#0a6e77', UNT = '#8d989e';
+    const ONE = '#2f7fd0', TWO = '#0a6e77', UNT = '#68757a';
     const showOne = r.effect > 0.05 && !r.courses.oneEqualsTwo, g1 = r.courses.gain1;
     const stds = r.standards;
     const at = a => { let i = stds.findIndex(p => p.age >= a); if (i < 1) i = 1; const p0 = stds[i - 1], p1 = stds[i]; const t = (a - p0.age) / (p1.age - p0.age); return [p0.mean + t * (p1.mean - p0.mean), p0.sd + t * (p1.sd - p0.sd)]; };
     const cur = r.history[r.history.length - 1], past = r.history.slice(0, -1);
     const firstAge = Math.min(...r.history.map(p => p.age));
     const x0 = Math.max(0, Math.min(Math.floor(firstAge) - 2, 14)), x1 = 18.2;
-    const W = 1000, L = 84, R = 250, T = 22, H = 352, B = 100;
+    const W = 1000, L = 84, R = 250, T = 22, H = 352, B = 128;
     const xs = []; for (let a = x0; a <= 18.0001; a += 0.25) xs.push(a);
     const lo = xs.map(a => at(a)[0] - 2 * at(a)[1]), hi = xs.map(a => at(a)[0] + 2 * at(a)[1]), mid = xs.map(a => at(a)[0]);
     const oneAt = p => p.untreated + Math.min(p.treated - p.untreated, g1);
@@ -1429,7 +1455,7 @@ const GH = (() => {
     if (r.geneticTarget) s += `<line x1="${L}" x2="${W - R}" y1="${Y(r.geneticTarget)}" y2="${Y(r.geneticTarget)}" stroke="#b8864b" stroke-width="1.7" stroke-dasharray="1.5 4"/>`;
     s += `</g>`;
     // 予測の線（今の年齢から）
-    s += `<path d="${path(r.trajectory.map(p => [p.age, p.untreated]))}" fill="none" stroke="${UNT}" stroke-width="2.8" stroke-dasharray="9 6"/>`;
+    s += `<path d="${path(r.trajectory.map(p => [p.age, p.untreated]))}" fill="none" stroke="${UNT}" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/>`;
     s += `<path d="${path(r.trajectory.map(p => [p.age, p.treated]))}" fill="none" stroke="${TWO}" stroke-width="3.6"/>`;
     const last = r.trajectory[r.trajectory.length - 1];
     // 右端に名前と数字（重ならないよう縦にずらす）
@@ -1458,13 +1484,20 @@ const GH = (() => {
         const [gx, gyy] = cands.find(c => !hit(c)) || cands[0];
         s += `<text x="${gx}" y="${gyy}" fill="#9a6a32" font-size="18">${gl}</text>`;
       } }
-    // 凡例（予測の線は右端に名前を書いたので、背景の線だけ）
-    let lx = L; const ly = H - 10;
-    [['band', '多くの子が入る範囲'], ['sd2', '低身長の目安'], ['mean', '同じ年齢の平均']].concat(past.length ? [['pt', 'これまでの測定']] : []).forEach(([k, label]) => {
-      const sw = k === 'band' ? `<rect x="${lx}" y="${ly - 12}" width="26" height="12" fill="#e8f3f4" stroke="#cfe3e5"/>` : k === 'pt' ? `<circle cx="${lx + 13}" cy="${ly - 6}" r="5" fill="#0a6e77"/>` : `<line x1="${lx}" x2="${lx + 26}" y1="${ly - 6}" y2="${ly - 6}" stroke="#b9c5c7" stroke-width="2"${k === 'sd2' ? ' stroke-dasharray="6 4"' : ''}/>`;
-      s += sw + `<text x="${lx + 32}" y="${ly}" fill="#233334" font-size="19">${label}</text>`;
-      lx += 32 + [...label].length * 19 + 34;
-    });
+    // 凡例（2段）。上段＝治療しない・これまでの測定、下段＝背景の線
+    const legend = (y, items) => {
+      let lx = 8;
+      items.forEach(([k, label]) => {
+        const sw = k === 'band' ? `<rect x="${lx}" y="${y - 12}" width="26" height="12" fill="#e8f3f4" stroke="#cfe3e5"/>`
+          : k === 'pt' ? `<circle cx="${lx + 13}" cy="${y - 6}" r="5" fill="#0a6e77"/>`
+          : k === 'unt' ? `<line x1="${lx}" x2="${lx + 26}" y1="${y - 6}" y2="${y - 6}" stroke="${UNT}" stroke-width="3.8" stroke-linecap="round"/>`
+          : `<line x1="${lx}" x2="${lx + 26}" y1="${y - 6}" y2="${y - 6}" stroke="#b9c5c7" stroke-width="2"${k === 'sd2' ? ' stroke-dasharray="6 4"' : ''}/>`;
+        s += sw + `<text x="${lx + 32}" y="${y}" fill="#233334" font-size="19">${label}</text>`;
+        lx += 32 + [...label].length * 19 + 34;
+      });
+    };
+    legend(H - 36, [['unt', '治療しない']].concat(past.length ? [['pt', 'これまでの測定']] : []));
+    legend(H - 8, [['band', '多くの子が入る範囲'], ['sd2', '低身長の目安'], ['mean', '同じ年齢の平均']]);
     return s + '</svg>';
   }
   function outlookChart(cur, outlook) {
@@ -1551,7 +1584,57 @@ const GH = (() => {
   const labLabel = l => LAB_NAME[l] ? `${LAB_NAME[l][0]}<small>${LAB_NAME[l][1]}</small>` : esc(l);
   const BD_NAME = { '年齢別の期待効果': '年齢から見込める分', '骨年齢による調整': '骨の年齢による分', '思春期による調整': '思春期の進み具合による分', '成長の残り期間による調整': '残りの成長期間による分', '最低見込み（2cm）への調整': '最低見込み（2cm）にそろえた分' };
 
-  const sg = x => (x >= 0 ? '+' : '') + f1(x);
+  // nb-minus 2026-11-13 ---------- 表示の整え ----------
+  // ① マイナスは数学の記号「−」（U+2212）で出す。計算の値は変えず、出すときだけ
+  const MINUS = '\u2212';
+  const minus = t => String(t).replace(/(?<![0-9A-Za-z])-(?=[0-9])/g, MINUS);
+  // ② 文節の境目にだけ印「|」を付け、出すときに区切りごとに nowrap の span で包む（1〜2文字だけが次の行に落ちるのを防ぐ）
+  //    区切る位置：「、」「。」のあと／ひらがなの次にひらがな以外が来るところ。3文字に満たない区切りは次の区切りとくっつける
+  const NB_CLOSE = '、。，．）」』】！？';
+  const isHira = c => c >= '\u3041' && c <= '\u309f';
+  const isKanji = c => c >= '\u4e00' && c <= '\u9fff';  // 「ご説明」「お問い合わせ」の直後では区切らない
+  const nbWord = w => {
+    const cs = [...w]; const ch = [''];
+    cs.forEach((c, i) => {
+      if (i > 0) {
+        const a = cs[i - 1];
+        const brk = (a === '、' || a === '。') ? !NB_CLOSE.includes(c) : (isHira(a) && !isHira(c) && c !== 'ー' && !NB_CLOSE.includes(c) && !((a === 'ご' || a === 'お') && isKanji(c)));
+        if (brk) ch.push('');
+      }
+      ch[ch.length - 1] += c;
+    });
+    const out = []; let carry = '';
+    ch.forEach(x => { const t = carry + x; if ([...t].length < 3) carry = t; else { out.push(t); carry = ''; } });
+    if (carry) { if (out.length) out[out.length - 1] += carry; else out.push(carry); }
+    return out.join('|');
+  };
+  const nbMark = t => String(t).split(/([ \u3000]+)/).map((w, i) => (i % 2 || !w) ? w : nbWord(w)).join('');
+  const nbH = t => minus(t).split(/([ \u3000]+)/).map((w, i) => (i % 2 || !w) ? w : nbWord(w).split('|').map(c => `<span class="nb">${esc(c)}</span>`).join('')).join('');
+  // 長い文は、文節の印を付けずにふつうに折り返させ、最後のひとかたまりだけを nowrap にして最後の行が1〜2文字にならないようにする。
+  //   最後のかたまり：最後の「、」「。」のあと（4〜11文字のとき）。なければ、文節の区切りから数えて最後の6文字以上
+  const nbTailMark = t => {
+    const cs = [...String(t)];
+    let pos = -1;
+    for (let i = cs.length - 2; i >= 0; i--) {
+      if (cs[i] === '、' || cs[i] === '。') { const len = cs.length - (i + 1); if (len >= 4 && len <= 11) { pos = i + 1; break; } if (len > 11) break; }
+    }
+    if (pos < 0) {
+      const cuts = []; let k = 0;
+      for (const ch of nbMark(cs.join(''))) { if (ch === '|') cuts.push(k); else { k++; if (ch === ' ' || ch === '\u3000') cuts.push(k); } }
+      pos = 0;
+      for (let q = cuts.length - 1; q >= 0; q--) if (cs.length - cuts[q] >= 6) { pos = cuts[q]; break; }
+    }
+    return cs.slice(0, pos).join('') + '|' + cs.slice(pos).join('');
+  };
+  // ふつうに折り返す部分でも、割れると読みにくい言葉（たんぱく質・カルシウムなど）はひとかたまりにする
+  const NB_TERMS = ['精密身長検査', 'ビタミンD', 'たんぱく質', 'カルシウム', '成長ホルモン', '検査結果', '血液検査', '母子手帳', '診察時', '骨端線', '主食', '分泌', '就寝', '思春期', '骨年齢', '週数'];
+  const nbTerms = t => String(t).split(new RegExp('(' + NB_TERMS.join('|') + ')')).map((x, i) => i % 2 ? `<span class="nb">${esc(x)}</span>` : esc(x)).join('');
+  const nbT = t => { const [a, b] = nbTailMark(minus(t)).split('|'); return nbTerms(a) + `<span class="nb">${esc(b)}</span>`; };
+  const circ = n => String.fromCodePoint(0x2460 + n - 1);  // ①②…（節の番号）
+  // 1年間の伸びの文：見出しの段階（やや少なめ・少ない）と文の言い方をそろえる
+  const plainVel = v => plain(v.description).replace('より少なめのペースです', 'よりやや少なめのペースです').replace('を大きく下回っています', 'を大きく下回る、少ないペースです');
+  const velLabel = v => v.available ? v.label : '次回わかります';
+  const sg = x => minus((x >= 0 ? '+' : '') + f1(x));
   const upEnd = rg => String(rg).split('〜')[1];  // 予測の幅の上の端
   // ③：3つの予測の幅を同じ目盛りに並べる（2年続けると幅そのものが上に移ることを見せる）
   function rangeChart(items) { return rangeChartW(items).replace('<svg ', '<svg class="rc-wide" ') + rangeChartN(items).replace('<svg ', '<svg class="rc-narrow" '); }
@@ -1718,7 +1801,7 @@ const GH = (() => {
       <section class="summary">
         <div class="sum-t">このレポートのまとめ</div>
         <ul>
-          <li><span class="k">今の身長</span><span><b>${f1(height)}</b>cm　<span class="ib">${rankText(r.sds)}</span><span class="sub">${esc(plain(r.sdsDescription))}</span></span></li>
+          <li><span class="k">今の身長</span><span><b>${f1(height)}</b>cm　<span class="ib">${rankText(r.sds)}</span><span class="sub">${nbH(minus(plain(r.sdsDescription)))}</span></span></li>
           <li><span class="k">治療をしない場合</span><span>大人の身長は <span class="ib">約<b>${f1(r.untreated)}</b>cm の見込みです</span></span></li>
           ${r.effect > 0.05
             ? (r.courses.oneEqualsTwo
@@ -1733,14 +1816,14 @@ const GH = (() => {
         <div class="cards">
           <div class="card"><div class="card-label">現在の身長</div><div class="card-value">${f1(height)}<span class="unit">cm</span></div></div>
           <div class="card"><div class="card-label">現在の体重</div><div class="card-value">${weight != null ? f1(weight) + '<span class="unit">kg</span>' : '<span class="na">未測定</span>'}</div></div>
-          <div class="card tinted"><div class="card-label">同じ年齢の子と比べた位置<small>SD値</small></div><div class="card-value accent">${r.sdsText}<span class="unit">SD</span></div><div class="card-sub">${rankText(r.sds)}</div></div>
+          <div class="card tinted"><div class="card-label">同じ年齢の子と比べた位置<small>SD値</small></div><div class="card-value accent">${minus(r.sdsText)}<span class="unit">SD</span></div><div class="card-sub">${nbH(rankText(r.sds))}</div></div>
         </div>
-        <div class="cards small">
-          <div class="card"><div class="card-label">骨の年齢<small>骨年齢（手のレントゲン）</small></div><div class="card-value">${r.boneAgeText ? r.boneAgeText + '<span class="unit">歳</span>' : '<span class="na">未測定</span>'}</div>${r.boneAgeNote ? `<div class="card-sub">${esc(plainBone(r.boneAgeNote))}</div>` : ''}</div>
-          <div class="card"><div class="card-label">成長ホルモンの働き<small>IGF-1</small></div><div class="card-value">${igf1 ? fg(igf1) + '<span class="unit">ng/mL</span>' : '<span class="na">未測定</span>'}</div></div>
-          <div class="card"><div class="card-label">思春期をゆっくりにするお薬<small>リュープリン</small></div><div class="card-value text">${$('leup').checked ? '使っています' : '使っていません'}</div></div>
+        <div class="cards small${$('leup').checked ? '' : ' c2'}">
+          <div class="card"><div class="card-label">骨の年齢<small>骨年齢（手のレントゲン）</small></div><div class="card-value">${r.boneAgeText ? r.boneAgeText + '<span class="unit">歳</span>' : '<span class="na">未測定</span>'}</div>${r.boneAgeNote ? `<div class="card-sub">${nbH(plainBone(r.boneAgeNote))}</div>` : ''}</div>
+          <div class="card"><div class="card-label">成長ホルモンの働き<small>IGF-1</small></div><div class="card-value">${igf1 ? fg(igf1) + '<span class="unit">ng/mL</span>' : '<span class="na">未測定</span>'}</div>${igf1 ? `<div class="card-sub">${nbH('年齢で目安が変わるため、')}<br>${nbH('診察でご説明します')}</div>` : ''}</div>
+          ${$('leup').checked ? '<div class="card"><div class="card-label">思春期をゆっくりにするお薬<small>リュープリン</small></div><div class="card-value text">使っています</div></div>' : ''}
         </div>
-        ${r.labCards.length ? `<div class="cards small c4">${r.labCards.map(c => `<div class="card"><div class="card-label">${labLabel(c.label)}</div><div class="card-value">${c.value ? esc(c.value) + (c.unit ? `<span class="unit">${c.unit}</span>` : '') : '<span class="na">未測定</span>'}</div>${c.note ? `<div class="card-sub">${esc(plainLab(c.note))}</div>` : ''}</div>`).join('')}</div>` : ''}
+        ${r.labCards.length ? `<div class="cards small c4">${r.labCards.map(c => `<div class="card"><div class="card-label">${labLabel(c.label)}</div><div class="card-value">${c.value ? esc(c.value) + (c.unit ? `<span class="unit">${c.unit}</span>` : '') : '<span class="na">未測定</span>'}</div>${c.note ? `<div class="card-sub">${nbH(plainLab(c.note))}</div>` : ''}</div>`).join('')}</div>` : ''}
         
       </section>
 
@@ -1751,7 +1834,7 @@ const GH = (() => {
           <div class="card"><div class="card-label">お母さまの身長</div><div class="card-value">${mother != null ? f1(mother) + '<span class="unit">cm</span>' : '<span class="na">-</span>'}</div></div>
           <div class="card tinted"><div class="card-label">ご両親から見た目安<small>遺伝的予測身長</small></div><div class="card-value accent">${r.geneticTarget ? '<span class="approx">約</span>' + f1(r.geneticTarget) + '<span class="unit">cm</span>' : '<span class="na">-</span>'}</div></div>
         </div>
-        <p class="r-note">ご両親の身長から計算した、大人の身長の目安です。実際は、成長のペースや思春期の時期で変わります。</p>
+        <p class="r-note">${nbT('ご両親の身長から計算した、大人の身長の目安です。実際は、成長のペースや思春期の時期で変わります。')}</p>
       </section>
 
       ${foot(1)}
@@ -1774,12 +1857,12 @@ const GH = (() => {
             <div class="st s0"><div class="st-l">治療をしない場合</div><div class="st-v grey">${f1(r.untreated)}<span class="unit">cm</span></div></div>
             <div class="st s1"><div class="st-l">${big ? '<span class="st-b">まず1年</span>' : ''}1年目の上乗せ <b class="one">${sg(r.courses.gain1)}cm</b></div><div class="st-v one">${f1(r.courses.final1)}<span class="unit">cm</span>${big ? `<small>うまくいけば ${upEnd(r.courses.range1)}cm まで</small>` : ''}</div></div>
             <div class="st s2"><div class="st-l">2年目も続けると さらに <b class="dark">${sg(g2)}cm</b></div><div class="st-v dark">${f1(r.treated)}<span class="unit">cm</span>${big ? `<small>うまくいけば ${upEnd(r.treatedRange)}cm まで</small>` : ''}</div></div>
-            ${big ? `<div class="st s3"><div class="st-l"><b>よく効く子は、さらに上も</b><span>1年目によく反応した子は、2年目以降も伸びが続き、「うまくいけば」の数字を超えることもあります。1年ごとの診察で確かめながら進めます。</span></div></div>` : ''}
+            ${big ? `<div class="st s3"><div class="st-l"><b>よく効く子は、さらに上も</b><span>${nbT('1年目によく反応した子は、2年目以降も伸びが続き、「うまくいけば」の数字を超えることもあります。1年ごとの診察で確かめながら進めます。')}</span></div></div>` : ''}
           </div>${big ? `
-          <div class="rec-line"><p><span class="rec">おすすめは、まず1年</span>2年目は、1年目の伸び方を見て一緒に決めます${hasCheck ? '（5「1年後の目安」）' : ''}。治療をやめても、それまでについた差は大人まで残ります。</p>
+          <div class="rec-line"><p><span class="rec">おすすめは、まず1年</span>${nbT('2年目は、1年目の伸び方を見て一緒に決めます' + (hasCheck ? `（3ページ目の${circ(5)}「1年後の目安」）` : '') + '。治療をやめても、それまでについた差は大人まで残ります。')}</p>
             </div>` : ''}`;
         })()}
-        <div class="points"><div class="pt-t">この予測のポイント</div><ul>${r.parentPoints.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>
+        <div class="points"><div class="pt-t">この予測のポイント</div><ul>${r.parentPoints.map(t => `<li>${nbT(minus(t))}</li>`).join('')}</ul></div>
       </section>
 
       <section class="blk">
@@ -1798,21 +1881,21 @@ const GH = (() => {
           const gu = Math.round((row.untreated - height) * 10) / 10, gt = Math.round((row.two - height) * 10) / 10;
           return `<div class="cards c2 check">
             <div class="card" style="padding:6px">${checkChart(gu, gt)}</div>
-            <div class="card" style="text-align:left"><p class="check-t">治療を始めて1年後の身長の目安</p>
-              <div class="check-v">${f1(row.two)}<span class="unit">cm</span><small>（1年で約${f1(gt)}cm）</small></div>
-              <p class="check-s">治療をしない場合は ${f1(row.untreated)}cm（1年で約${f1(gu)}cm）</p></div>
+            <div class="card" style="text-align:left"><p class="check-t">${nbH('治療を始めて1年後の身長の目安')}</p>
+              <div class="check-v">${f1(row.two)}<span class="unit">cm</span><small>${nbH(minus(`（1年で約${f1(gt)}cm）`))}</small></div>
+              <p class="check-s">${nbH(minus(`治療をしない場合は ${f1(row.untreated)}cm（1年で約${f1(gu)}cm）`))}</p></div>
           </div>
-          <p class="r-note">1年後の診察で、この目安と比べて伸び方を確かめ、2年目を続けるかを一緒に決めます。</p>
-          ${r.effect >= 2.0 ? `<div class="up-box"><p class="up-t">よく効く子は、さらに上をめざせます</p><p>効き方には個人差があります。1年目で2年分の上乗せ（${r.effectText}cm）近くまで伸びる子や、2年目以降も伸びが続いて「うまくいけば」の数字を超える子もいれば、2年かけてじっくり効果が出る子もいます。1年ごとの診察で伸び方を確かめながら、続け方を一緒に決めます。</p></div>` : '<p class="r-note">効き方には個人差があります。1年ごとの診察で伸び方を確かめながら進めます。</p>'}`;
+          <p class="r-note">${nbT('1年後の診察で、この目安と比べて伸び方を確かめ、2年目を続けるかを一緒に決めます。')}</p>
+          ${r.effect >= 2.0 ? `<div class="up-box"><p class="up-t">よく効く子は、さらに上をめざせます</p><p>${nbT(minus(`効き方には個人差があります。1年目で2年分の上乗せ（${r.effectText}cm）近くまで伸びる子や、2年目以降も伸びが続いて「うまくいけば」の数字を超える子もいれば、2年かけてじっくり効果が出る子もいます。1年ごとの診察で伸び方を確かめながら、続け方を一緒に決めます。`))}</p></div>` : `<p class="r-note">${nbT('効き方には個人差があります。1年ごとの診察で伸び方を確かめながら進めます。')}</p>`}`;
         })()}
       </section>` : ''}
 
       <section class="blk">
         <div class="sh"><div class="sh-title"><span class="num">${hasCheck ? 6 : 5}</span>成長のペース</div></div>
         <div class="cards pace">
-          <div class="card"><span class="pill${warnV ? ' warn' : ''}">1年間の伸び</span><div class="pace-head${warnV ? ' warn' : (v.available ? '' : ' muted')}">${esc(v.label)}</div><p>${esc(plain(v.description))}</p>${v.sourceNote ? `<p class="source">※${esc(v.sourceNote)}</p>` : ''}</div>
-          <div class="card"><span class="pill">思春期の状況</span><div class="pace-head">${GH.TANNER_LABEL[r.stage]}</div><p>${REMAINING[r.stage]}</p></div>
-          ${r.sga && r.sga.available ? `<div class="card"><span class="pill${['possible', 'likely'].includes(r.sga.level) ? ' warn' : ''}">出生時の体格</span><div class="pace-head${['possible', 'likely'].includes(r.sga.level) ? ' warn' : ''}">${esc(r.sga.label)}</div><p>${esc(plain(r.sga.description))}</p></div>` : `<div class="card"><span class="pill">出生時の体格</span><div class="pace-head muted">記録なし</div><p>出生時の身長・体重の記録がないため、評価していません。診察時に母子手帳で確認させてください。</p></div>`}
+          <div class="card"><span class="pill${warnV ? ' warn' : ''}">1年間の伸び</span><div class="pace-head${warnV ? ' warn' : (v.available ? '' : ' muted')}">${esc(velLabel(v))}</div><p>${nbT(plainVel(v))}</p>${v.sourceNote ? `<p class="source">${nbT('※' + v.sourceNote)}</p>` : ''}</div>
+          <div class="card"><span class="pill">思春期の状況</span><div class="pace-head">${GH.TANNER_LABEL[r.stage]}</div><p>${nbT(REMAINING[r.stage])}</p></div>
+          ${r.sga && r.sga.available ? `<div class="card"><span class="pill${['possible', 'likely'].includes(r.sga.level) ? ' warn' : ''}">出生時の体格</span><div class="pace-head${['possible', 'likely'].includes(r.sga.level) ? ' warn' : ''}">${esc(r.sga.label)}</div><p>${nbT(plain(r.sga.description))}</p></div>` : `<div class="card"><span class="pill">出生時の体格</span><div class="pace-head muted">記録なし</div><p>${nbT('出生時の身長・体重の記録がないため、評価していません。診察時に母子手帳で確認させてください。')}</p></div>`}
         </div>
       </section>
 
@@ -1823,21 +1906,21 @@ const GH = (() => {
 
       ${r.lifestyle.length ? `<section class="blk">
         <div class="sh"><div class="sh-title"><span class="num">${hasCheck ? 7 : 6}</span>毎日の生活でできること</div></div>
-        <div class="cards habits">${r.lifestyle.map(a => `<div class="card"><div class="habit-head"><span class="habit-title">${esc(a.title)}</span><span class="habit-current">現在：${esc(a.current)}</span></div><p>${esc(a.comment)}</p></div>`).join('')}</div>
+        <div class="cards habits">${r.lifestyle.map(a => `<div class="card"><div class="habit-head"><span class="habit-title">${esc(a.title)}</span><span class="habit-current">現在：${esc(a.current)}</span></div><p>${nbT(a.comment)}</p></div>`).join('')}</div>
       </section>` : ''}
 
       <section class="blk">
         <div class="sh"><div class="sh-title"><span class="num">${(hasCheck ? 7 : 6) + (r.lifestyle.length ? 1 : 0)}</span>今後の流れ</div></div>
         <div class="steps">
-          <div><div class="step-no">ステップ1</div><div class="step-title">結果のご説明</div><span class="badge">オンライン</span><p>本レポートをもとに、担当医が検査結果と成長の見通しをご説明します。</p></div>
-          <div><div class="step-no">ステップ2</div><div class="step-title">治療方針のご相談</div><span class="badge">オンライン</span><p>治療が必要かどうか・期間・費用をご説明し、ご納得いただいた場合のみ治療を始めます。</p></div>
-          <div><div class="step-no">ステップ3</div><div class="step-title">定期診察・経過フォロー</div><span class="badge">検査施設・オンライン</span><p>定期的な診察と血液検査で、成長の様子と体調を確認しながら進めます。</p></div>
+          <div><div class="step-no">ステップ1</div><div class="step-title">結果のご説明</div><span class="badge">オンライン</span><p>${nbT('本レポートをもとに、担当医が検査結果と成長の見通しをご説明します。')}</p></div>
+          <div><div class="step-no">ステップ2</div><div class="step-title">治療方針のご相談</div><span class="badge">オンライン</span><p>${nbT('治療が必要かどうか・期間・費用をご説明し、ご納得いただいた場合のみ治療を始めます。')}</p></div>
+          <div><div class="step-no">ステップ3</div><div class="step-title">定期診察・経過フォロー</div><span class="badge">検査施設・オンライン</span><p>${nbT('定期的な診察と血液検査で、成長の様子と体調を確認しながら進めます。')}</p></div>
         </div>
       </section>
 
       <div class="contact">
         <div><div class="t">ご相談・ご不明な点は、お気軽にお問い合わせください</div><div class="s">公式LINE、またはお電話にて承ります</div></div>
-        <div class="r"><div class="c">${CLINIC}</div><div class="ph">&#9742; ${PHONE}</div></div>
+        <div class="r"><div class="c">${CLINIC}</div><div class="ph">&#9742; ${PHONE}</div><div class="hrs">受付時間 9:00〜18:00（日・祝休み）</div></div>
       </div>
       <div class="about">
         <div class="t">本レポートについて</div>
@@ -1857,7 +1940,7 @@ const GH = (() => {
     $('l-male').setAttribute('aria-pressed', String(lsex === 'male'));
     $('l-female').setAttribute('aria-pressed', String(lsex === 'female'));
     const ageRaw = $('l-age').value, hRaw = $('l-height').value, faRaw = $('l-father').value, moRaw = $('l-mother').value;
-    const age = GH.parseAge(ageRaw), h = GH.parseHeight(hRaw), fa = GH.parseHeight(faRaw), mo = GH.parseHeight(moRaw);
+    const age = GH.parseAge(ageRaw), h = GH.parseHeight(hRaw, 50, 200), fa = GH.parseHeight(faRaw, 140, 210), mo = GH.parseHeight(moRaw, 130, 190);  // 本番の受け付ける範囲
     let html = bubble('成長予測サービス', true) + bubble('お子さまの性別を教えてください😊\n（男の子 / 女の子）\n\n（残り質問数：5問）');
     html += bubble(lsex === 'male' ? '男の子' : '女の子', true) + bubble(lsex === 'male' ? '男の子ですね👦\n今、何歳ですか？\n\n（残り質問数：4問）' : '女の子ですね👧\n今、何歳ですか？\n\n（残り質問数：4問）');
     html += bubble(ageRaw, true);
@@ -1865,6 +1948,8 @@ const GH = (() => {
     if (age == null) { $('talk').innerHTML = html + bubble('年齢を数字で教えてください🙏\n（例: 8）'); kv.innerHTML = ''; return; }
     html += bubble(`${GH.ageLabel(age)}ですね！\n今の身長は何cmですか？📏\n\n（残り質問数：3問）`) + bubble(hRaw, true);
     if (h == null) { $('talk').innerHTML = html + bubble('身長を数字で教えてください🙏\n（例: 120）'); kv.innerHTML = ''; return; }
+    // 入力ガード（本番と同じ文）：ありえない身長（SDSが±5を超える）は一度聞き直す。同じ数字をもう一度送ると受け付ける
+    if (Math.abs(GH.heightSds(lsex, age, h)) > 5.0) html += bubble(GH.lineReaskMessage(age, h)) + bubble(hRaw, true);
     html += bubble(`${f1(h)}cmですね！\nお父さまの身長は何cmですか？\n\n（残り質問数：2問）`) + bubble(faRaw, true);
     if (fa == null) { $('talk').innerHTML = html + bubble('身長を数字で教えてください🙏\n（例: 175）'); kv.innerHTML = ''; return; }
     html += bubble(`お父さま${GH.pyRound(fa)}cmですね！\nお母さまの身長は何cmですか？\n\n（残り質問数：1問）`) + bubble(moRaw, true);
