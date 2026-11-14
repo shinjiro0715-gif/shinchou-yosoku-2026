@@ -475,7 +475,7 @@ footer.site p { margin: 0; max-width: 90ch; }
       </div>
 
       <div class="col">
-        <p class="col-label">保護者に渡す精密レポート（PDFと同じ並び）</p>
+        <p class="col-label">保護者に渡す精密レポート（本番の「検査後のレポート」と同じ並び）</p>
         <div class="pdf-bar">
           <div class="pdf-btns"><button type="button" id="btn-pdf" class="pdf-main">PDFに保存（A4・4枚）</button><button type="button" id="btn-clear">入力をすべて消す</button></div>
           <p class="pdf-note" id="pdf-note">「PDFに保存」を押すと印刷の画面が開きます。送り先（プリンター）で「PDFに保存」を選んでください。入力した内容はこの画面の中だけで計算し、どこにも送信・保存しません。保存が終わったら「入力をすべて消す」で消してください。</p>
@@ -1797,7 +1797,7 @@ const GH = (() => {
 
     // 管理画面の注意事項（スタッフ向け）
     const icon = '<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>';
-    alertsBox.innerHTML = `<h2>⚠️ 注意事項</h2><p class="who">管理画面（患者ページ）にだけ出ます。保護者向けのPDFには出ません。</p>` +
+    alertsBox.innerHTML = `<h2>⚠️ 注意事項</h2><p class="who">管理画面（患者ページ）にだけ出ます。保護者に渡す「検査後のレポート」には出ません。</p>` +
       (r.alerts.length ? `<ul>${r.alerts.map(a => `<li>${icon}<span>${esc(a)}</span></li>`).join('')}</ul>` : '<p class="none">いまの入力では、確認事項はありません。</p>');
 
     const head = `<header class="p-head">
